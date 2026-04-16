@@ -1352,12 +1352,13 @@
         /* XP Bar (in-game top-right) */
         .xp-bar-container {
             position: absolute;
-            top: 110px;
-            right: 20px;
+            top: env(safe-area-inset-top, 10px);
+            right: env(safe-area-inset-right, 20px);
             width: 140px;
             z-index: 10;
             pointer-events: none;
             text-align: right;
+            padding-top: 50px;
         }
 
         .xp-level-label {
@@ -1395,9 +1396,10 @@
 
         @media (max-width: 430px) {
             .xp-bar-container {
-                top: 170px;
-                right: 15px;
+                top: env(safe-area-inset-top, 10px);
+                right: env(safe-area-inset-right, 15px);
                 width: 120px;
+                padding-top: 45px;
             }
         }
 
@@ -2163,7 +2165,7 @@
         let pipeCounter = 0;
         let pipeSpeed = 3;
         let pipeFrequency = 90;
-        const version = '0.6.0';
+        const version = '0.6.1';
 
         // ─── XP & Level System ────────────────────────────────────────────
         // Level thresholds: how much TOTAL XP to reach each level
@@ -4277,101 +4279,222 @@
             }
         }
 
+        // ─── Draw a skin preview to a given 2D context (bypasses global ctx) ─
+        function drawSkinToContext(skinKey, pCtx, b) {
+            const r = b.radius;
+            const wr = b.wingRotation;
+
+            if (skinKey === 'classic') {
+                const g = pCtx.createRadialGradient(-3,-4,2,0,0,r);
+                g.addColorStop(0,'#ffaa00'); g.addColorStop(0.5,'#ff6b00'); g.addColorStop(1,'#cc3300');
+                pCtx.fillStyle = g; pCtx.beginPath(); pCtx.arc(0,0,r,0,Math.PI*2); pCtx.fill();
+                pCtx.save(); pCtx.translate(-4,4); pCtx.rotate(wr);
+                pCtx.fillStyle='rgba(200,60,0,0.7)'; pCtx.beginPath(); pCtx.ellipse(0,0,8,5,-0.4,0,Math.PI*2); pCtx.fill(); pCtx.restore();
+                pCtx.fillStyle='#ffcc00'; pCtx.beginPath(); pCtx.moveTo(r-2,-2); pCtx.lineTo(r+7,0); pCtx.lineTo(r-2,3); pCtx.closePath(); pCtx.fill();
+            } else if (skinKey === 'void') {
+                const g = pCtx.createRadialGradient(0,0,0,0,0,r*1.8);
+                g.addColorStop(0,'rgba(128,0,255,0.5)'); g.addColorStop(1,'rgba(128,0,255,0)');
+                pCtx.fillStyle=g; pCtx.beginPath(); pCtx.arc(0,0,r*1.8,0,Math.PI*2); pCtx.fill();
+                pCtx.fillStyle='#000'; pCtx.beginPath(); pCtx.arc(0,0,r,0,Math.PI*2); pCtx.fill();
+                pCtx.save(); pCtx.translate(-4,4); pCtx.rotate(wr);
+                pCtx.fillStyle='rgba(80,0,160,0.9)'; pCtx.beginPath(); pCtx.ellipse(0,0,8,5,-0.4,0,Math.PI*2); pCtx.fill(); pCtx.restore();
+                pCtx.fillStyle='#800080'; pCtx.beginPath(); pCtx.moveTo(r-2,-2); pCtx.lineTo(r+7,0); pCtx.lineTo(r-2,3); pCtx.closePath(); pCtx.fill();
+            } else if (skinKey === 'inferno') {
+                const g = pCtx.createRadialGradient(-3,-4,2,0,0,r);
+                g.addColorStop(0,'#ffff00'); g.addColorStop(0.5,'#ff4400'); g.addColorStop(1,'#cc0000');
+                pCtx.fillStyle=g; pCtx.beginPath(); pCtx.arc(0,0,r,0,Math.PI*2); pCtx.fill();
+                pCtx.save(); pCtx.translate(-4,4); pCtx.rotate(wr);
+                pCtx.fillStyle='rgba(255,100,0,0.8)'; pCtx.beginPath(); pCtx.ellipse(0,0,8,5,-0.4,0,Math.PI*2); pCtx.fill(); pCtx.restore();
+                pCtx.fillStyle='#ffff00'; pCtx.beginPath(); pCtx.moveTo(r-2,-2); pCtx.lineTo(r+7,0); pCtx.lineTo(r-2,3); pCtx.closePath(); pCtx.fill();
+            } else if (skinKey === 'ghost') {
+                const g = pCtx.createRadialGradient(-3,-4,2,0,0,r);
+                g.addColorStop(0,'rgba(255,255,255,0.9)'); g.addColorStop(0.5,'rgba(200,200,200,0.7)'); g.addColorStop(1,'rgba(150,150,150,0.5)');
+                pCtx.fillStyle=g; pCtx.beginPath(); pCtx.arc(0,0,r,0,Math.PI*2); pCtx.fill();
+                pCtx.save(); pCtx.translate(-4,4); pCtx.rotate(wr);
+                pCtx.fillStyle='rgba(180,180,180,0.6)'; pCtx.beginPath(); pCtx.ellipse(0,0,8,5,-0.4,0,Math.PI*2); pCtx.fill(); pCtx.restore();
+                pCtx.fillStyle='rgba(100,100,100,0.8)'; pCtx.beginPath(); pCtx.moveTo(r-2,-2); pCtx.lineTo(r+7,0); pCtx.lineTo(r-2,3); pCtx.closePath(); pCtx.fill();
+            } else if (skinKey === 'neon') {
+                const g = pCtx.createRadialGradient(0,0,0,0,0,r*2);
+                g.addColorStop(0,'rgba(0,255,255,0.6)'); g.addColorStop(0.5,'rgba(128,0,255,0.3)'); g.addColorStop(1,'rgba(128,0,255,0)');
+                pCtx.fillStyle=g; pCtx.beginPath(); pCtx.arc(0,0,r*2,0,Math.PI*2); pCtx.fill();
+                pCtx.strokeStyle='#00ffff'; pCtx.lineWidth=2;
+                pCtx.fillStyle='rgba(0,100,100,0.6)'; pCtx.beginPath(); pCtx.arc(0,0,r,0,Math.PI*2); pCtx.fill(); pCtx.stroke();
+                pCtx.save(); pCtx.translate(-4,4); pCtx.rotate(wr);
+                pCtx.strokeStyle='#00ffff'; pCtx.lineWidth=1;
+                pCtx.beginPath(); pCtx.ellipse(0,0,8,5,-0.4,0,Math.PI*2); pCtx.stroke(); pCtx.restore();
+                pCtx.strokeStyle='#00ffff'; pCtx.lineWidth=2;
+                pCtx.beginPath(); pCtx.moveTo(r-2,-2); pCtx.lineTo(r+7,0); pCtx.lineTo(r-2,3); pCtx.closePath(); pCtx.stroke();
+            } else if (skinKey === 'skeleton') {
+                pCtx.fillStyle='#ffffcc'; pCtx.beginPath(); pCtx.arc(0,0,r,0,Math.PI*2); pCtx.fill();
+                pCtx.fillStyle='#000';
+                pCtx.beginPath(); pCtx.arc(5,-5,3.5,0,Math.PI*2); pCtx.fill();
+                pCtx.beginPath(); pCtx.arc(10,-5,3.5,0,Math.PI*2); pCtx.fill();
+                pCtx.beginPath(); pCtx.moveTo(7.5,-1); pCtx.lineTo(5.5,2); pCtx.lineTo(9.5,2); pCtx.closePath(); pCtx.fill();
+                pCtx.strokeStyle='#000'; pCtx.lineWidth=1;
+                for (let i=0;i<5;i++) { pCtx.beginPath(); pCtx.moveTo(5+i*3,4); pCtx.lineTo(5+i*3,6); pCtx.stroke(); }
+                pCtx.fillStyle='#ffffcc'; pCtx.beginPath(); pCtx.moveTo(r-2,-2); pCtx.lineTo(r+7,0); pCtx.lineTo(r-2,3); pCtx.closePath(); pCtx.fill();
+            } else if (skinKey === 'metal') {
+                const g = pCtx.createRadialGradient(-5,-6,1,0,0,r);
+                g.addColorStop(0,'#e8e8e8'); g.addColorStop(0.4,'#c0c0c0'); g.addColorStop(1,'#808080');
+                pCtx.fillStyle=g; pCtx.beginPath(); pCtx.arc(0,0,r,0,Math.PI*2); pCtx.fill();
+                pCtx.fillStyle='rgba(255,255,255,0.5)'; pCtx.beginPath(); pCtx.arc(-4,-6,4,0,Math.PI*2); pCtx.fill();
+                pCtx.save(); pCtx.translate(-4,4); pCtx.rotate(wr);
+                pCtx.fillStyle='rgba(160,160,160,0.8)'; pCtx.beginPath(); pCtx.ellipse(0,0,8,5,-0.4,0,Math.PI*2); pCtx.fill(); pCtx.restore();
+                pCtx.fillStyle='#ffd700'; pCtx.beginPath(); pCtx.moveTo(r-2,-2); pCtx.lineTo(r+7,0); pCtx.lineTo(r-2,3); pCtx.closePath(); pCtx.fill();
+            } else if (skinKey === 'cosmic') {
+                const g = pCtx.createRadialGradient(-3,-4,2,0,0,r);
+                g.addColorStop(0,'#0033ff'); g.addColorStop(0.5,'#000066'); g.addColorStop(1,'#000033');
+                pCtx.fillStyle=g; pCtx.beginPath(); pCtx.arc(0,0,r,0,Math.PI*2); pCtx.fill();
+                pCtx.fillStyle='#ffff00';
+                for (let i=0;i<8;i++) {
+                    const a=(i/8)*Math.PI*2; pCtx.beginPath(); pCtx.arc(Math.cos(a)*7,Math.sin(a)*7,1.5,0,Math.PI*2); pCtx.fill();
+                }
+                pCtx.save(); pCtx.translate(-4,4); pCtx.rotate(wr);
+                pCtx.fillStyle='rgba(0,50,150,0.7)'; pCtx.beginPath(); pCtx.ellipse(0,0,8,5,-0.4,0,Math.PI*2); pCtx.fill(); pCtx.restore();
+                pCtx.fillStyle='#00ffff'; pCtx.beginPath(); pCtx.moveTo(r-2,-2); pCtx.lineTo(r+7,0); pCtx.lineTo(r-2,3); pCtx.closePath(); pCtx.fill();
+            } else {
+                pCtx.fillStyle='#ff6b00'; pCtx.beginPath(); pCtx.arc(0,0,r,0,Math.PI*2); pCtx.fill();
+            }
+            // Eye (all skins)
+            pCtx.fillStyle='#000'; pCtx.beginPath(); pCtx.ellipse(6,-5,4,4,0,0,Math.PI*2); pCtx.fill();
+            pCtx.fillStyle='#fff'; pCtx.beginPath(); pCtx.arc(7,-6,1.5,0,Math.PI*2); pCtx.fill();
+        }
+
         function renderSkinsGrid() {
             const skinsGrid = document.getElementById('skinsGrid');
             skinsGrid.innerHTML = '';
 
             Object.entries(birdSkins).forEach(([skinKey, skinData]) => {
-                const isUnlocked = xpManager.isSkinUnlocked(skinKey);
-                const reqLevel = SKIN_LEVEL_REQUIREMENTS[skinKey] || 1;
-
                 const card = document.createElement('div');
                 card.className = 'skin-card';
-                if (!isUnlocked) card.classList.add('locked-skin');
-                if (game.selectedSkin === skinKey && isUnlocked) {
+                if (game.selectedSkin === skinKey) {
                     card.classList.add('selected');
                 }
 
-                // Add touch feedback only if unlocked
-                if (isUnlocked) addTouchFeedback(card);
+                // Add touch feedback
+                addTouchFeedback(card);
 
+                // Canvas preview — uses drawSkinToContext (own pCtx, not global ctx)
                 const preview = document.createElement('canvas');
                 preview.className = 'skin-preview';
                 preview.width = 120;
                 preview.height = 90;
 
-                // Draw preview of the skin
-                const previewCtx = preview.getContext('2d');
-                previewCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-                previewCtx.fillRect(0, 0, 120, 90);
+                const pCtx = preview.getContext('2d');
+                pCtx.fillStyle = '#0d0000';
+                pCtx.fillRect(0, 0, 120, 90);
 
-                if (isUnlocked) {
-                    previewCtx.save();
-                    previewCtx.translate(60, 45);
+                // Temporarily set up bird preview params
+                const savedRadius = bird.radius;
+                const savedWingRot = bird.wingRotation;
+                const savedVelocity = bird.velocity;
+                bird.radius = 18;
+                bird.wingRotation = 0.2;
+                bird.velocity = 0;
 
-                    // Mock bird state for preview
-                    const prevBird = { ...bird, radius: 12, wingRotation: 0.2, velocity: 0 };
-                    const origBird = bird;
-                    Object.assign(bird, prevBird);
+                pCtx.save();
+                pCtx.translate(60, 45);
+                drawSkinToContext(skinKey, pCtx, bird);
+                pCtx.restore();
 
-                    // Temporarily set skin for drawing
-                    const tempSkin = game.selectedSkin;
-                    game.selectedSkin = skinKey;
-
-                    // Draw the bird preview
-                    skinData.draw.call(null);
-
-                    game.selectedSkin = tempSkin;
-                    Object.assign(bird, origBird);
-                    previewCtx.restore();
-                } else {
-                    // Locked overlay
-                    previewCtx.fillStyle = 'rgba(0,0,0,0.7)';
-                    previewCtx.fillRect(0, 0, 120, 90);
-                    previewCtx.fillStyle = '#555';
-                    previewCtx.font = 'bold 32px Arial';
-                    previewCtx.textAlign = 'center';
-                    previewCtx.textBaseline = 'middle';
-                    previewCtx.fillText('\uD83D\uDD12', 60, 45);
-                }
+                bird.radius = savedRadius;
+                bird.wingRotation = savedWingRot;
+                bird.velocity = savedVelocity;
 
                 card.appendChild(preview);
 
-                const name = document.createElement('div');
-                name.className = 'skin-name';
-                name.textContent = skinData.name;
-                card.appendChild(name);
+                const nameEl = document.createElement('div');
+                nameEl.className = 'skin-name';
+                nameEl.textContent = skinData.name;
+                card.appendChild(nameEl);
 
                 const badge = document.createElement('div');
+                const isUnlocked = xpManager.isSkinUnlocked(skinKey);
                 if (isUnlocked) {
-                    badge.className = reqLevel === 1 ? 'skin-badge free' : 'skin-badge unlocked';
-                    badge.textContent = reqLevel === 1 ? 'FREE' : 'UNLOCKED';
+                    badge.className = 'skin-badge free';
+                    badge.textContent = 'FREE';
                 } else {
-                    badge.className = 'skin-badge locked';
-                    badge.textContent = 'LOCKED - Level ' + reqLevel;
+                    badge.className = 'skin-badge';
+                    const req = SKIN_LEVEL_REQUIREMENTS[skinKey] || 1;
+                    badge.textContent = `Lv. ${req}`;
+                    badge.style.background = 'rgba(128, 128, 128, 0.6)';
+                    badge.style.borderColor = 'rgba(128, 128, 128, 0.8)';
                 }
                 card.appendChild(badge);
 
-                card.addEventListener('click', () => {
-                    if (!isUnlocked) {
-                        // Show a small message
-                        badge.textContent = '\uD83D\uDD12 Reach Level ' + reqLevel;
-                        setTimeout(() => {
-                            badge.textContent = 'LOCKED - Level ' + reqLevel;
-                        }, 1500);
-                        return;
-                    }
+                const selectedCheck = document.createElement('div');
+                selectedCheck.className = 'selected-check';
+                selectedCheck.textContent = 'SELECTED';
+                card.appendChild(selectedCheck);
+
+                // Disable click if locked
+                if (!isUnlocked) {
+                    card.style.opacity = '0.6';
+                    card.style.cursor = 'not-allowed';
+                    card.classList.add('locked-skin');
+                }
+
+                // Select skin on click or touchend (iPhone)
+                function doSelectSkin(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
                     selectBirdSkin(skinKey);
-                });
+                }
+                card.addEventListener('click', doSelectSkin);
+                card.addEventListener('touchend', doSelectSkin, { passive: false });
 
                 skinsGrid.appendChild(card);
             });
         }
 
         function selectBirdSkin(skinKey) {
+            // Check if skin is unlocked
+            if (!xpManager.isSkinUnlocked(skinKey)) {
+                const req = SKIN_LEVEL_REQUIREMENTS[skinKey] || 1;
+                showLockMessage(skinKey, req);
+                return;
+            }
+
             game.selectedSkin = skinKey;
             localStorage.setItem('selectedBirdSkin', skinKey);
-            renderSkinsGrid();
+            // Close overlay → returns user to difficulty selector
+            if (customizeOverlayOpen) {
+                toggleCustomizeOverlay();
+            }
+        }
+
+        function showLockMessage(skinKey, requiredLevel) {
+            // Create temporary locked message
+            const lockMsg = document.createElement('div');
+            lockMsg.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(0, 0, 0, 0.95);
+                color: #ffcc00;
+                padding: 20px 30px;
+                border-radius: 8px;
+                z-index: 9999;
+                font-family: Arial, sans-serif;
+                font-size: 14px;
+                font-weight: bold;
+                text-align: center;
+                border: 2px solid #ffcc00;
+                box-shadow: 0 0 20px rgba(255, 200, 0, 0.5);
+                pointer-events: none;
+            `;
+
+            const skinName = birdSkins[skinKey]?.name || skinKey;
+            lockMsg.textContent = `LOCKED\n${skinName} - Level ${requiredLevel} required`;
+            lockMsg.style.whiteSpace = 'pre-wrap';
+
+            document.body.appendChild(lockMsg);
+
+            // Remove after 2 seconds
+            setTimeout(() => {
+                lockMsg.remove();
+            }, 2000);
         }
 
         document.getElementById('customizeBtn').addEventListener('click', (e) => {
@@ -4379,24 +4502,32 @@
             toggleCustomizeOverlay();
         });
 
-        document.getElementById('customizeCloseBtn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleCustomizeOverlay();
-        });
+        // X close button — click + touchend for iPhone reliability
+        (function() {
+            const closeBtn = document.getElementById('customizeCloseBtn');
+            function handleClose(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (customizeOverlayOpen) {
+                    toggleCustomizeOverlay();
+                }
+            }
+            closeBtn.addEventListener('click', handleClose);
+            closeBtn.addEventListener('touchend', handleClose, { passive: false });
+        })();
 
+        // Tap on backdrop closes overlay
         document.getElementById('customizeOverlay').addEventListener('click', (e) => {
             if (e.target.id === 'customizeOverlay') {
                 toggleCustomizeOverlay();
             }
         });
-
-        // Close customize menu on ESC
-        const origKeydownListener = document.addEventListener('keydown', (e) => {
-            if (e.code === 'Escape' && customizeOverlayOpen) {
+        document.getElementById('customizeOverlay').addEventListener('touchend', (e) => {
+            if (e.target.id === 'customizeOverlay') {
                 e.preventDefault();
                 toggleCustomizeOverlay();
             }
-        });
+        }, { passive: false });
 
         // ─── Boot ──────────────────────────────────────────────────────────
         // Validate saved skin — if locked due to level, revert to classic
