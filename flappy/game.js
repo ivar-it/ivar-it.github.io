@@ -1051,6 +1051,7 @@
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const audioBuffers = {};
         const audioSources = [];
+        let audioInitialized = false;
 
         // Audio file mapping
         const audioFiles = {
@@ -1065,27 +1066,43 @@
             startHint: 'sounds/start-hint.mp3'
         };
 
+        // Ensure audio context is ready
+        async function ensureAudioContext() {
+            try {
+                if (audioCtx.state === 'suspended') {
+                    await audioCtx.resume();
+                    console.log('[AUDIO] Context resumed');
+                }
+            } catch (e) {
+                console.error('[AUDIO] Failed to resume context:', e);
+            }
+        }
+
         // Load an audio file and decode it
         async function loadAudioFile(key, filename) {
             try {
+                await ensureAudioContext();
                 const response = await fetch(filename);
-                if (!response.ok) throw new Error(`Failed to fetch ${filename}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const arrayBuffer = await response.arrayBuffer();
                 const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
                 audioBuffers[key] = audioBuffer;
-                console.log(`[AUDIO] Loaded ${key}: ${filename}`);
+                console.log(`[AUDIO] ✓ Loaded ${key}`);
             } catch (e) {
-                console.error(`[AUDIO] Failed to load ${filename}:`, e);
+                console.error(`[AUDIO] ✗ Failed to load ${key} (${filename}):`, e.message);
             }
         }
 
         // Initialize: Load all essential audio files
         async function initializeAudio() {
-            console.log('[AUDIO] Initializing audio system...');
-            if (audioCtx.state === 'suspended') {
-                await audioCtx.resume();
+            if (audioInitialized) {
+                console.log('[AUDIO] Already initialized');
+                return;
             }
-            // Pre-load critical sounds
+            console.log('[AUDIO] Starting initialization...');
+            await ensureAudioContext();
+
+            // Load all sounds in parallel
             await Promise.all([
                 loadAudioFile('jump', audioFiles.jump),
                 loadAudioFile('score', audioFiles.score),
@@ -1097,21 +1114,30 @@
                 loadAudioFile('levelUp', audioFiles.levelUp),
                 loadAudioFile('startHint', audioFiles.startHint)
             ]);
-            console.log('[AUDIO] All audio files loaded');
+            audioInitialized = true;
+            console.log('[AUDIO] ✓ Initialization complete');
         }
 
         // Play an audio buffer
         function playAudioBuffer(key) {
             if (!game.soundEnabled) return;
             if (!audioBuffers[key]) {
-                console.warn(`[AUDIO] Buffer not found: ${key}`);
+                // Audio not loaded yet - try loading on demand
+                if (!audioInitialized) {
+                    console.log(`[AUDIO] Audio not ready, loading ${key}...`);
+                    loadAudioFile(key, audioFiles[key]);
+                }
                 return;
             }
 
             try {
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
                 const source = audioCtx.createBufferSource();
                 source.buffer = audioBuffers[key];
                 const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
                 source.connect(gain);
                 gain.connect(audioCtx.destination);
                 source.start(0);
@@ -1121,7 +1147,7 @@
                     audioSources.splice(audioSources.indexOf(source), 1);
                 };
             } catch (e) {
-                console.error(`[AUDIO] Error playing ${key}:`, e);
+                console.error(`[AUDIO] Error playing ${key}:`, e.message);
             }
         }
 
