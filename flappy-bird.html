@@ -832,7 +832,18 @@
             gravity: 0.35,
             lift: -5,
             color: '#ff6b00',
-            rotation: 0      // radians; 0 = flat, positive = nose-down
+            rotation: 0,      // radians; 0 = flat, positive = nose-down
+            // Visual feedback animations
+            wingRotation: 0,
+            wingFlapFrame: 0,
+            eyeBlinkTimer: 0,
+            eyeBlinkDuration: 150,
+            eyeBlinkInterval: 3000,
+            nextBlink: Math.random() * 3000,
+            powerUpFlashTimer: 0,
+            powerUpFlashDuration: 300,
+            trailParticles: [],
+            eyeWidthMultiplier: 1.0
         };
 
         const pipes = [];
@@ -841,7 +852,7 @@
         let pipeCounter = 0;
         let pipeSpeed = 3;
         let pipeFrequency = 90;
-        const version = '0.4.1';
+        const version = '0.4.2';
 
         // ─── Death sequence state ──────────────────────────────────────────
         const deathSequence = {
@@ -1436,10 +1447,17 @@
             // Record power-up collection in stats
             statsManager.recordPowerUpCollection(type);
 
+            // Visual feedback: white flash on bird
+            bird.powerUpFlashTimer = bird.powerUpFlashDuration;
+
             if (type === 'shield') {
                 // Shield shows visual indicator on bird
             } else if (type === 'powbomb') {
-                // POW-Bomb: clear all active pipes
+                // POW-Bomb: clear all active pipes + eyes widen effect
+                bird.eyeWidthMultiplier = 2.0; // Eyes widen
+                setTimeout(() => {
+                    bird.eyeWidthMultiplier = 1.0;
+                }, 300);
                 playPowSound();
                 triggerScreenFlash();
                 triggerExplosionShake();
@@ -1698,6 +1716,52 @@
             ctx.restore();
         }
 
+        // ─── Bird trail particle system ────────────────────────────────────
+        function updateBirdTrail() {
+            // Spawn trail particles when bird is moving fast enough
+            if (Math.abs(bird.velocity) > 3) {
+                const particle = {
+                    x: bird.x - Math.cos(bird.rotation) * bird.radius * 0.8,
+                    y: bird.y - Math.sin(bird.rotation) * bird.radius * 0.8,
+                    vx: -Math.cos(bird.rotation) * 2,
+                    vy: -Math.sin(bird.rotation) * 2,
+                    life: 1.0,
+                    maxLife: 0.4
+                };
+                bird.trailParticles.push(particle);
+            }
+
+            // Update particles
+            for (let i = bird.trailParticles.length - 1; i >= 0; i--) {
+                const p = bird.trailParticles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= p.maxLife * 0.05;
+                p.vy += 0.1; // gravity
+
+                if (p.life <= 0) {
+                    bird.trailParticles.splice(i, 1);
+                }
+            }
+
+            // Limit particle count
+            if (bird.trailParticles.length > 30) {
+                bird.trailParticles.shift();
+            }
+        }
+
+        function drawBirdTrail() {
+            bird.trailParticles.forEach(p => {
+                const alpha = p.life / p.maxLife;
+                ctx.globalAlpha = alpha * 0.4;
+                ctx.fillStyle = '#ff9900';
+                ctx.beginPath();
+                ctx.arc(p.x - bird.x, p.y - bird.y, 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+        }
+
         // ─── Draw bird (with rotation) ─────────────────────────────────────
         function drawBird() {
             // Target rotation: clamp velocity-based tilt between -30deg and +70deg
@@ -1705,34 +1769,98 @@
             // Smooth interpolation
             bird.rotation += (targetRotation - bird.rotation) * 0.18;
 
+            // Update wing flapping animation (continuous)
+            bird.wingFlapFrame = (bird.wingFlapFrame + 0.12) % (Math.PI * 2);
+            bird.wingRotation = Math.sin(bird.wingFlapFrame) * 0.3;
+
+            // Update eye blink
+            bird.nextBlink -= 16.67; // ~60fps
+            if (bird.nextBlink <= 0) {
+                bird.eyeBlinkTimer = bird.eyeBlinkDuration;
+                bird.nextBlink = bird.eyeBlinkInterval + Math.random() * 2000;
+            }
+            if (bird.eyeBlinkTimer > 0) {
+                bird.eyeBlinkTimer -= 16.67;
+            }
+            const blinkAmount = Math.max(0, 1 - bird.eyeBlinkTimer / (bird.eyeBlinkDuration * 0.5));
+
+            // Update power-up flash
+            if (bird.powerUpFlashTimer > 0) {
+                bird.powerUpFlashTimer -= 16.67;
+            }
+
+            // Update trail particles
+            updateBirdTrail();
+
             ctx.save();
             ctx.translate(bird.x, bird.y);
             ctx.rotate(bird.rotation);
 
-            // Body glow
+            // Draw trail effect if moving fast
+            drawBirdTrail();
+
+            // Body glow - enhanced when power-ups active
+            let glowIntensity = 0.35;
+            let glowColor = 'rgba(255, 140, 0, ';
+            if (game.activePowerUps.shield) {
+                glowIntensity = 0.5;
+                glowColor = 'rgba(77, 166, 255, ';
+            } else if (game.activePowerUps.doublepoints) {
+                glowIntensity = 0.45;
+                glowColor = 'rgba(255, 200, 0, ';
+            }
+
             const glowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, bird.radius * 1.8);
-            glowGrad.addColorStop(0, 'rgba(255, 140, 0, 0.35)');
-            glowGrad.addColorStop(1, 'rgba(255, 107, 0, 0)');
+            glowGrad.addColorStop(0, glowColor + glowIntensity + ')');
+            glowGrad.addColorStop(1, glowColor + '0)');
             ctx.fillStyle = glowGrad;
             ctx.beginPath();
             ctx.arc(0, 0, bird.radius * 1.8, 0, Math.PI * 2);
             ctx.fill();
 
-            // Main body
+            // Power-up collection flash (white overlay)
+            if (bird.powerUpFlashTimer > 0) {
+                const flashAlpha = (bird.powerUpFlashTimer / bird.powerUpFlashDuration) * 0.6;
+                ctx.globalAlpha = flashAlpha;
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(0, 0, bird.radius * 1.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+
+            // Main body (color shift for active power-ups)
+            let bodyColor1 = '#ffaa00';
+            let bodyColor2 = '#ff6b00';
+            let bodyColor3 = '#cc3300';
+            if (game.activePowerUps.shield) {
+                bodyColor1 = '#6db3ff';
+                bodyColor2 = '#4da6ff';
+                bodyColor3 = '#2d7fb8';
+            } else if (game.activePowerUps.doublepoints) {
+                bodyColor1 = '#ffdd00';
+                bodyColor2 = '#ffcc00';
+                bodyColor3 = '#ff9900';
+            }
+
             const bodyGrad = ctx.createRadialGradient(-3, -4, 2, 0, 0, bird.radius);
-            bodyGrad.addColorStop(0, '#ffaa00');
-            bodyGrad.addColorStop(0.5, '#ff6b00');
-            bodyGrad.addColorStop(1, '#cc3300');
+            bodyGrad.addColorStop(0, bodyColor1);
+            bodyGrad.addColorStop(0.5, bodyColor2);
+            bodyGrad.addColorStop(1, bodyColor3);
             ctx.fillStyle = bodyGrad;
             ctx.beginPath();
             ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
             ctx.fill();
 
-            // Wing
+            // Wing with flapping animation
+            ctx.save();
+            ctx.translate(-4, 4);
+            ctx.rotate(bird.wingRotation);
             ctx.fillStyle = 'rgba(200, 60, 0, 0.7)';
             ctx.beginPath();
-            ctx.ellipse(-4, 4, 8, 5, -0.4, 0, Math.PI * 2);
+            ctx.ellipse(0, 0, 8, 5, -0.4, 0, Math.PI * 2);
             ctx.fill();
+            ctx.restore();
 
             // Beak (pointing right, the direction of travel)
             ctx.fillStyle = '#ffcc00';
@@ -1743,16 +1871,22 @@
             ctx.closePath();
             ctx.fill();
 
-            // Eye
+            // Eye with blink and width modulation
+            const eyeRadius = 4 * (0.6 + blinkAmount * 0.4);
+            const eyeWidth = 4 * bird.eyeWidthMultiplier * (0.6 + blinkAmount * 0.4);
             ctx.fillStyle = '#000';
             ctx.beginPath();
-            ctx.arc(6, -5, 4, 0, Math.PI * 2);
+            ctx.ellipse(6, -5, eyeWidth, eyeRadius, 0, 0, Math.PI * 2);
             ctx.fill();
-            // Eye highlight
-            ctx.fillStyle = '#fff';
-            ctx.beginPath();
-            ctx.arc(7, -6, 1.5, 0, Math.PI * 2);
-            ctx.fill();
+
+            // Eye highlight (only when not blinking)
+            if (blinkAmount > 0.1) {
+                ctx.fillStyle = '#fff';
+                const highlightRadius = 1.5 * blinkAmount;
+                ctx.beginPath();
+                ctx.arc(7, -6, highlightRadius, 0, Math.PI * 2);
+                ctx.fill();
+            }
 
             // Shield overlay if active
             if (game.activePowerUps.shield) {
