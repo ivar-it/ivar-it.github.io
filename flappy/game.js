@@ -738,7 +738,18 @@
             confCanvas.width = overlay.offsetWidth || window.innerWidth;
             confCanvas.height = overlay.offsetHeight || window.innerHeight;
 
-            levelText.textContent = 'Level ' + newLevel;
+            // Show level and zone tier
+            const newZone = getDifficultyZone(newLevel);
+            levelText.textContent = 'Level ' + newLevel + ' - ' + newZone;
+
+            // Check if zone changed (difficulty tier upgrade)
+            const oldLevel = newLevel - 1;
+            const oldZone = oldLevel > 0 ? getDifficultyZone(oldLevel) : '';
+            if (oldZone && oldZone !== newZone) {
+                // Zone transition - add visual emphasis
+                levelText.style.fontSize = '32px';
+                levelText.style.fontWeight = 'bold';
+            }
 
             // Check if a skin was unlocked at this level
             const unlockedSkin = Object.entries(SKIN_LEVEL_REQUIREMENTS)
@@ -747,6 +758,11 @@
                 const skinName = birdSkins[unlockedSkin[0]] ? birdSkins[unlockedSkin[0]].name : unlockedSkin[0];
                 unlockEl.textContent = '\u{1F513} Unlocked: ' + skinName + ' Skin!';
                 unlockEl.classList.add('visible');
+            } else if (newLevel === MAX_LEVEL) {
+                // Special message for max level
+                unlockEl.textContent = '👑 YOU\'VE REACHED MAX LEVEL - APOCALYPSE EDITION!';
+                unlockEl.classList.add('visible');
+                unlockEl.style.color = '#ff0000';
             } else {
                 unlockEl.classList.remove('visible');
             }
