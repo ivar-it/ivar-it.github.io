@@ -2165,7 +2165,7 @@
         let pipeCounter = 0;
         let pipeSpeed = 3;
         let pipeFrequency = 90;
-        const version = '0.6.1';
+        const version = '0.6.2';
 
         // ─── XP & Level System ────────────────────────────────────────────
         // Level thresholds: how much TOTAL XP to reach each level
@@ -3392,6 +3392,11 @@
 
             // Draw the selected skin
             const selectedSkin = birdSkins[game.selectedSkin] || birdSkins.classic;
+            if (!window.skinDrawDebugLogged) {
+                console.log('[DRAWBIRD] game.selectedSkin:', game.selectedSkin, 'Drawing skin:', selectedSkin);
+                window.skinDrawDebugLogged = true;
+                setTimeout(() => { window.skinDrawDebugLogged = false; }, 1000);
+            }
             selectedSkin.draw();
 
             // Eye with blink and width modulation (applies to all skins)
@@ -4379,6 +4384,8 @@
                 preview.className = 'skin-preview';
                 preview.width = 120;
                 preview.height = 90;
+                preview.style.pointerEvents = 'auto';
+                preview.style.cursor = 'pointer';
 
                 const pCtx = preview.getContext('2d');
                 pCtx.fillStyle = '#0d0000';
@@ -4436,31 +4443,54 @@
 
                 // Select skin on click or touchend (iPhone)
                 function doSelectSkin(e) {
+                    console.log('[SKIN-CLICK] Clicked on skin card:', skinKey);
                     e.preventDefault();
                     e.stopPropagation();
                     selectBirdSkin(skinKey);
                 }
-                card.addEventListener('click', doSelectSkin);
-                card.addEventListener('touchend', doSelectSkin, { passive: false });
+                // Ensure card pointer-events are enabled
+                card.style.pointerEvents = 'auto';
+                card.addEventListener('click', doSelectSkin, { capture: false });
+                card.addEventListener('touchend', doSelectSkin, { passive: false, capture: false });
+                // Also add mousedown as backup for mobile/touch devices
+                card.addEventListener('touchstart', (e) => {
+                    console.log('[SKIN-TOUCH] Touch started on skin card:', skinKey);
+                }, { passive: true });
 
                 skinsGrid.appendChild(card);
             });
         }
 
         function selectBirdSkin(skinKey) {
+            console.log('[SELECTSKN] selectBirdSkin called with:', skinKey);
             // Check if skin is unlocked
             if (!xpManager.isSkinUnlocked(skinKey)) {
                 const req = SKIN_LEVEL_REQUIREMENTS[skinKey] || 1;
+                console.log('[SELECTSKN] Skin locked - required level:', req);
                 showLockMessage(skinKey, req);
                 return;
             }
 
+            console.log('[SELECTSKN] Setting game.selectedSkin to:', skinKey);
             game.selectedSkin = skinKey;
+            console.log('[SELECTSKN] Setting localStorage selectedBirdSkin to:', skinKey);
             localStorage.setItem('selectedBirdSkin', skinKey);
+            console.log('[SELECTSKN] customizeOverlayOpen:', customizeOverlayOpen);
+
+            // Update the skins grid display to show new selection
+            if (customizeOverlayOpen) {
+                console.log('[SELECTSKN] Re-rendering skins grid to update selection');
+                renderSkinsGrid();
+            }
+
             // Close overlay → returns user to difficulty selector
             if (customizeOverlayOpen) {
-                toggleCustomizeOverlay();
+                console.log('[SELECTSKN] Closing overlay');
+                setTimeout(() => {
+                    toggleCustomizeOverlay();
+                }, 100);
             }
+            console.log('[SELECTSKN] Final game.selectedSkin:', game.selectedSkin);
         }
 
         function showLockMessage(skinKey, requiredLevel) {
@@ -4530,11 +4560,16 @@
         }, { passive: false });
 
         // ─── Boot ──────────────────────────────────────────────────────────
+        console.log('[BOOT] Initial game.selectedSkin:', game.selectedSkin);
+        console.log('[BOOT] localStorage selectedBirdSkin:', localStorage.getItem('selectedBirdSkin'));
+        console.log('[BOOT] xpManager.currentLevel:', xpManager.currentLevel);
         // Validate saved skin — if locked due to level, revert to classic
         if (!xpManager.isSkinUnlocked(game.selectedSkin)) {
+            console.log('[BOOT] Skin not unlocked, reverting to classic');
             game.selectedSkin = 'classic';
             localStorage.setItem('selectedBirdSkin', 'classic');
         }
+        console.log('[BOOT] Final game.selectedSkin:', game.selectedSkin);
 
         gameLoop();
 
