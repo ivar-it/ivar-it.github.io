@@ -504,6 +504,115 @@
                 opacity: 0;
             }
         }
+
+        /* ─── Stats Overlay ───────────────────────────────────────────────── */
+        .stats-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            backdrop-filter: blur(2px);
+        }
+
+        .stats-overlay.visible {
+            display: flex;
+        }
+
+        .stats-panel {
+            background: rgba(0, 0, 0, 0.95);
+            border: 3px solid #ff6b00;
+            border-radius: 10px;
+            padding: 30px;
+            color: #ff6b00;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            text-shadow: 0 0 10px rgba(255, 107, 0, 0.8);
+        }
+
+        .stats-panel h2 {
+            font-size: 24px;
+            margin: 0 0 15px 0;
+            border-bottom: 2px solid #ff6b00;
+            padding-bottom: 10px;
+        }
+
+        .stats-section {
+            margin: 20px 0;
+        }
+
+        .stats-section h3 {
+            font-size: 16px;
+            color: #ff8c00;
+            margin: 10px 0 8px 0;
+            opacity: 0.8;
+        }
+
+        .stats-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 14px;
+            opacity: 0.85;
+        }
+
+        .stats-item span:first-child {
+            flex: 1;
+        }
+
+        .stats-item span:last-child {
+            font-weight: bold;
+            color: #ffaa00;
+        }
+
+        .stats-hint {
+            font-size: 12px;
+            color: #ff8c00;
+            margin-top: 20px;
+            opacity: 0.6;
+            text-align: center;
+        }
+
+        /* ─── Keyboard focus states ──────────────────────────────────────── */
+        .difficulty-btn:focus {
+            outline: 3px solid #ffaa00;
+            outline-offset: 2px;
+        }
+
+        .sound-toggle:focus {
+            outline: 3px solid #ffaa00;
+            outline-offset: 2px;
+        }
+
+        button:focus {
+            outline: 3px solid #ffaa00;
+            outline-offset: 2px;
+        }
+
+        /* High contrast mode support */
+        @media (prefers-contrast: more) {
+            .difficulty-btn {
+                border-width: 3px;
+            }
+
+            .stats-panel {
+                border-width: 4px;
+            }
+        }
+
+        /* Keyboard hint in instructions */
+        .keyboard-hint {
+            font-size: 12px;
+            color: #ff8c00;
+            margin-top: 5px;
+            opacity: 0.6;
+        }
     </style>
 </head>
 <body>
@@ -529,7 +638,7 @@
                 <p id="personalBestMessage" style="margin: 5px 0; color: #ffaa00;"></p>
                 <p id="pipeMessage" style="margin: 5px 0;"></p>
             </div>
-            <button onclick="location.reload()">RESTART</button>
+            <button onclick="location.reload()" aria-label="Restart the game">RESTART</button>
         </div>
         <div class="start-screen" id="startScreen">
             <h1>FLAPPY BIRD</h1>
@@ -542,29 +651,75 @@
             <h1>SELECT DIFFICULTY</h1>
             <p>Choose your apocalyptic fate...</p>
             <div class="difficulty-buttons">
-                <button class="difficulty-btn" data-difficulty="easy">
+                <button class="difficulty-btn" data-difficulty="easy" aria-label="Easy difficulty: Slow pipes, relaxed gameplay">
                     Easy
                     <div class="difficulty-desc">Slow pipes, relaxed</div>
                     <div class="difficulty-tooltip">Gap: 250px | Speed: 2 | Gravity: 0.25</div>
                 </button>
-                <button class="difficulty-btn" data-difficulty="normal">
+                <button class="difficulty-btn" data-difficulty="normal" aria-label="Normal difficulty: Classic Flappy Bird challenge">
                     Normal
                     <div class="difficulty-desc">Classic Flappy challenge</div>
                     <div class="difficulty-tooltip">Gap: 210px | Speed: 3 | Gravity: 0.35</div>
                 </button>
-                <button class="difficulty-btn" data-difficulty="hard">
+                <button class="difficulty-btn" data-difficulty="hard" aria-label="Hard difficulty: Fast pipes with tight gaps">
                     Hard
                     <div class="difficulty-desc">Fast pipes, tight gaps</div>
                     <div class="difficulty-tooltip">Gap: 180px | Speed: 4 | Gravity: 0.42</div>
                 </button>
-                <button class="difficulty-btn" data-difficulty="insane">
+                <button class="difficulty-btn" data-difficulty="insane" aria-label="Insane difficulty: Maximum chaos with very fast gaps">
                     Insane
                     <div class="difficulty-desc">Max chaos, fast gaps</div>
                     <div class="difficulty-tooltip">Gap: 150px | Speed: 5 | Gravity: 0.5</div>
                 </button>
             </div>
         </div>
-        <div class="instructions">TAP or CLICK to fly &bull; Avoid pipes</div>
+        <div class="instructions">
+            TAP or CLICK to fly &bull; Avoid pipes
+            <div class="keyboard-hint">SPACE/UP ARROW to fly &bull; ESC for stats &bull; R to restart</div>
+        </div>
+        <div class="stats-overlay" id="statsOverlay">
+            <div class="stats-panel">
+                <h2>APOCALYPSE STATS</h2>
+
+                <div class="stats-section">
+                    <h3>CURRENT RUN</h3>
+                    <div class="stats-item">
+                        <span>Score</span>
+                        <span id="statsCurrentScore">0</span>
+                    </div>
+                    <div class="stats-item">
+                        <span>Streak</span>
+                        <span id="statsCurrentStreak">0</span>
+                    </div>
+                    <div class="stats-item">
+                        <span>Pipes Cleared</span>
+                        <span id="statsCurrentPipes">0</span>
+                    </div>
+                </div>
+
+                <div class="stats-section">
+                    <h3>ALL-TIME</h3>
+                    <div class="stats-item">
+                        <span>Personal Best</span>
+                        <span id="statsAllTimeBest">0</span>
+                    </div>
+                    <div class="stats-item">
+                        <span>Best Streak</span>
+                        <span id="statsAllTimeStreak">0</span>
+                    </div>
+                    <div class="stats-item">
+                        <span>Total Games</span>
+                        <span id="statsGamesPlayed">0</span>
+                    </div>
+                    <div class="stats-item">
+                        <span>Total Pipes</span>
+                        <span id="statsAllTimePipes">0</span>
+                    </div>
+                </div>
+
+                <div class="stats-hint">Press ESC or click to close</div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -686,23 +841,31 @@
         let pipeCounter = 0;
         let pipeSpeed = 3;
         let pipeFrequency = 90;
-        const version = '0.4.2';
+        const version = '0.4.1';
 
         // ─── Death sequence state ──────────────────────────────────────────
         const deathSequence = {
             active: false,
             startTime: 0,
-            duration: 800, // 0.8 seconds total death animation
+            duration: 1200, // 1.2 seconds total death animation
             birdRotation: 0,
-            slowMotionFactor: 1.0, // 1.0 = normal, 0.3 = slow-mo
+            birdSpinSpeed: 0.18,
+            slowMotionDuration: 200, // 0.2s slow-mo on collision
+            slowMotionActive: false,
+            slowMotionFactor: 1.0, // 1.0 = normal, 0.2 = slow-mo
             screenTint: 0,
             screenTintTarget: 0,
-            screenTintSpeed: 0.025,
+            screenTintSpeed: 0.035,
+            screenTintMaxOpacity: 0.6,
             deadTextAlpha: 0,
             deadTextScale: 0,
+            deadTextAppearTime: 150, // ms before "DEAD" shows
             collisionX: 0,
             collisionY: 0,
-            showDeadText: false
+            collisionPipeX: 0,
+            showDeadText: false,
+            birdBlinkIntensity: 0,
+            trailParticleRate: 0.5
         };
         let scrollOffset = 0;
 
@@ -2233,6 +2396,94 @@
 
             setTimeout(() => feedback.remove(), 600);
         }
+
+        // ─── Stats Overlay System ──────────────────────────────────────────
+        let statsOverlayOpen = false;
+
+        function updateStatsDisplay() {
+            document.getElementById('statsCurrentScore').textContent = game.score;
+            document.getElementById('statsCurrentStreak').textContent = game.streak;
+            document.getElementById('statsCurrentPipes').textContent = statsManager.currentRun.totalPipesCleared;
+            document.getElementById('statsAllTimeBest').textContent = statsManager.stats.allTimeHigh;
+            document.getElementById('statsAllTimeStreak').textContent = statsManager.stats.bestStreak;
+            document.getElementById('statsGamesPlayed').textContent = statsManager.stats.gamesPlayed;
+            document.getElementById('statsAllTimePipes').textContent = statsManager.stats.totalPipes;
+        }
+
+        function toggleStatsOverlay() {
+            statsOverlayOpen = !statsOverlayOpen;
+            const overlay = document.getElementById('statsOverlay');
+            if (statsOverlayOpen) {
+                updateStatsDisplay();
+                overlay.classList.add('visible');
+            } else {
+                overlay.classList.remove('visible');
+            }
+        }
+
+        // Close stats overlay on click
+        document.getElementById('statsOverlay').addEventListener('click', (e) => {
+            if (e.target.id === 'statsOverlay') {
+                toggleStatsOverlay();
+            }
+        });
+
+        // ─── Keyboard Controls ────────────────────────────────────────────
+        document.addEventListener('keydown', (e) => {
+            // SPACE or UP ARROW to fly
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+
+                if (game.gameOver) {
+                    location.reload();
+                    return;
+                }
+
+                if (game.started) {
+                    bird.velocity = bird.lift;
+                    jumpSound();
+                    spawnJumpRing();
+                }
+            }
+            // ESC to show/hide stats
+            else if (e.code === 'Escape') {
+                e.preventDefault();
+                toggleStatsOverlay();
+            }
+            // R to restart from game-over screen
+            else if (e.code === 'KeyR' && game.gameOver) {
+                e.preventDefault();
+                location.reload();
+            }
+            // Arrow keys for difficulty selection (Tab navigation)
+            else if (e.code === 'ArrowRight' || e.code === 'ArrowLeft') {
+                const selector = document.getElementById('difficultySelector');
+                if (selector && selector.style.display !== 'none') {
+                    const buttons = Array.from(document.querySelectorAll('.difficulty-btn'));
+                    const focused = document.activeElement;
+                    const focusedIndex = buttons.indexOf(focused);
+
+                    if (focusedIndex !== -1) {
+                        let nextIndex = focusedIndex + (e.code === 'ArrowRight' ? 1 : -1);
+                        if (nextIndex < 0) nextIndex = buttons.length - 1;
+                        if (nextIndex >= buttons.length) nextIndex = 0;
+                        buttons[nextIndex].focus();
+                    } else if (buttons.length > 0) {
+                        buttons[0].focus();
+                    }
+                }
+            }
+            // Enter to select difficulty
+            else if (e.code === 'Enter') {
+                const selector = document.getElementById('difficultySelector');
+                if (selector && selector.style.display !== 'none') {
+                    const focused = document.activeElement;
+                    if (focused.classList.contains('difficulty-btn')) {
+                        selectDifficulty(focused.dataset.difficulty);
+                    }
+                }
+            }
+        });
 
         // ─── Boot ──────────────────────────────────────────────────────────
         gameLoop();
