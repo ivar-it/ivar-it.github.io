@@ -148,13 +148,13 @@
             y: canvas.height / 2,
             radius: 15,
             velocity: 0,
-            gravity: 0.5,
-            lift: -12,
+            gravity: 0.35,
+            lift: -10,
             color: '#ff6b00'
         };
 
         const pipes = [];
-        const pipeGap = 120;
+        const pipeGap = 160;
         const pipeWidth = 50;
         let pipeCounter = 0;
 
@@ -224,7 +224,7 @@
 
             // Update pipes
             pipes.forEach((pipe, index) => {
-                pipe.x -= 4;
+                pipe.x -= 3;
 
                 // Score
                 if (!pipe.scored && pipe.x + pipeWidth < bird.x) {
