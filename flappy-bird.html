@@ -202,7 +202,7 @@
         const pipeGap = 210;
         const pipeWidth = 50;
         let pipeCounter = 0;
-        const version = '1.5';
+        const version = '1.6';
         let scrollOffset = 0;
 
         // Audio context for sound effects
@@ -494,17 +494,13 @@
             jumpSound();
         }
 
-        // Start menu music on first interaction
-        function initializeAudio() {
-            if (!musicPlaying) {
-                playStartMusic();
-            }
-        }
-        document.addEventListener('click', initializeAudio, { once: true });
-        document.addEventListener('touchstart', initializeAudio, { once: true });
-
         // Start game
         gameLoop();
+
+        // Start music immediately on page load
+        setTimeout(() => {
+            playStartMusic();
+        }, 100);
         // Music starts on first user interaction
         document.getElementById('highScore').textContent = game.highScore;
     </script>
