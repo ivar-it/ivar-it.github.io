@@ -14,9 +14,11 @@ Simple browser-based Flappy Bird game with apocalyptic theme.
 
 ### Version Updates ⚠️
 **IMPORTANT:** Always update the version number in `flappy-bird.html` when making changes:
-- Increment the version number in: `const version = 'X.X';`
-- Version format: Major.Minor (e.g., 1.0, 1.1, 1.2)
-- Update on EVERY commit/change to the game
+- Increment the version number in: `const version = 'X.X.X';`
+- Version format: **Pre-Alpha** format is `0.MAJOR.MINOR` (e.g., 0.1.0, 0.1.1, 0.1.9)
+  - `0.X.X` = Pre-alpha/development stage
+  - Once stable → `1.0.0`
+- **Update on EVERY commit/change to the game**
 
 ### Code Structure
 - Single HTML file with embedded CSS and JavaScript
