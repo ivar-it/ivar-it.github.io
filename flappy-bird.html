@@ -157,7 +157,37 @@
         const pipeGap = 210;
         const pipeWidth = 50;
         let pipeCounter = 0;
-        const version = '1.1';
+        const version = '1.2';
+        let scrollOffset = 0;
+
+        // Audio context for sound effects
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(freq, duration, type = 'sine') {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.frequency.value = freq;
+            osc.type = type;
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function jumpSound() {
+            playSound(400, 0.1);
+        }
+
+        function scoreSound() {
+            playSound(800, 0.15);
+            setTimeout(() => playSound(1000, 0.15), 75);
+        }
+
+        function gameOverSound() {
+            playSound(200, 0.5);
+        }
 
         // Draw bird
         function drawBird() {
@@ -175,36 +205,78 @@
 
         // Draw pipes
         function drawPipes() {
-            ctx.fillStyle = '#8b0000';
-            ctx.strokeStyle = '#ff4500';
-            ctx.lineWidth = 3;
-
             pipes.forEach(pipe => {
                 // Top pipe
+                const topGradient = ctx.createLinearGradient(pipe.x, 0, pipe.x + pipeWidth, 0);
+                topGradient.addColorStop(0, '#660000');
+                topGradient.addColorStop(0.5, '#8b0000');
+                topGradient.addColorStop(1, '#660000');
+                ctx.fillStyle = topGradient;
                 ctx.fillRect(pipe.x, 0, pipeWidth, pipe.top);
-                ctx.strokeRect(pipe.x, 0, pipeWidth, pipe.top);
+
+                // Top pipe rim
+                ctx.fillStyle = '#ff4500';
+                ctx.fillRect(pipe.x, pipe.top - 8, pipeWidth, 8);
+                ctx.fillStyle = '#ff6b00';
+                ctx.fillRect(pipe.x + 2, pipe.top - 6, pipeWidth - 4, 4);
 
                 // Bottom pipe
+                const botGradient = ctx.createLinearGradient(pipe.x, pipe.bottom, pipe.x + pipeWidth, pipe.bottom);
+                botGradient.addColorStop(0, '#660000');
+                botGradient.addColorStop(0.5, '#8b0000');
+                botGradient.addColorStop(1, '#660000');
+                ctx.fillStyle = botGradient;
                 ctx.fillRect(pipe.x, pipe.bottom, pipeWidth, canvas.height - pipe.bottom);
-                ctx.strokeRect(pipe.x, pipe.bottom, pipeWidth, canvas.height - pipe.bottom);
+
+                // Bottom pipe rim
+                ctx.fillStyle = '#ff4500';
+                ctx.fillRect(pipe.x, pipe.bottom, pipeWidth, 8);
+                ctx.fillStyle = '#ff6b00';
+                ctx.fillRect(pipe.x + 2, pipe.bottom + 2, pipeWidth - 4, 4);
             });
         }
 
         // Draw background
         function drawBackground() {
-            ctx.fillStyle = '#2d0a00';
+            // Sky gradient
+            const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            skyGradient.addColorStop(0, '#3d0a00');
+            skyGradient.addColorStop(0.5, '#2d0a00');
+            skyGradient.addColorStop(1, '#1a0000');
+            ctx.fillStyle = skyGradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Apocalyptic effect
-            ctx.fillStyle = 'rgba(255, 107, 0, 0.05)';
-            for (let i = 0; i < 3; i++) {
-                ctx.fillRect(0, i * (canvas.height / 3), canvas.width, canvas.height / 3);
+            // Parallax ground layers
+            const groundY = canvas.height * 0.85;
+            ctx.fillStyle = '#4a1a00';
+            ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+
+            // Scrolling ground pattern
+            ctx.strokeStyle = 'rgba(255, 107, 0, 0.2)';
+            ctx.lineWidth = 1;
+            for (let i = -1; i < 3; i++) {
+                const x = (i * 60 + scrollOffset) % canvas.width;
+                ctx.beginPath();
+                ctx.moveTo(x, groundY);
+                ctx.lineTo(x + 30, groundY - 10);
+                ctx.stroke();
+            }
+
+            // Dust particles effect
+            ctx.fillStyle = 'rgba(255, 107, 0, 0.1)';
+            for (let i = 0; i < 5; i++) {
+                const x = (i * 120 + scrollOffset * 0.5) % canvas.width;
+                ctx.beginPath();
+                ctx.arc(x, canvas.height * 0.4, 2, 0, Math.PI * 2);
+                ctx.fill();
             }
         }
 
         // Update game
         function update() {
             if (game.gameOver) return;
+
+            scrollOffset += 1;
 
             // Bird physics
             bird.velocity += bird.gravity;
@@ -232,6 +304,7 @@
                     pipe.scored = true;
                     game.score++;
                     document.getElementById('score').textContent = game.score;
+                    scoreSound();
                 }
 
                 // Remove off-screen pipes
@@ -278,6 +351,7 @@
         // End game
         function endGame() {
             game.gameOver = true;
+            gameOverSound();
             document.getElementById('gameOverScreen').style.display = 'block';
             document.getElementById('finalScore').textContent = game.score;
 
@@ -295,6 +369,7 @@
         function fly(e) {
             e.preventDefault();
             bird.velocity = bird.lift;
+            jumpSound();
 
             if (!game.started) {
                 game.started = true;
