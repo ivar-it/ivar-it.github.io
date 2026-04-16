@@ -34,6 +34,8 @@
             width: 100%;
             height: 100%;
             height: 100dvh;
+            /* Eliminate 300ms tap delay across the whole page */
+            touch-action: manipulation;
         }
 
         .container {
@@ -50,6 +52,8 @@
             width: 100%;
             height: 100%;
             touch-action: none;
+            /* Prevent iOS callout on long press */
+            -webkit-touch-callout: none;
         }
 
         .ui {
@@ -1507,9 +1511,69 @@
             80%  { opacity: 0.8; }
             100% { opacity: 0; transform: translateY(-50px); }
         }
+
+        /* ─── Landscape rotate prompt (touch devices in landscape) ────────── */
+        .rotate-prompt {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #1a0000;
+            z-index: 9999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            color: #ff6b00;
+            text-align: center;
+            padding: 24px;
+            padding-top: max(24px, env(safe-area-inset-top));
+            padding-bottom: max(24px, env(safe-area-inset-bottom));
+            padding-left: max(24px, env(safe-area-inset-left));
+            padding-right: max(24px, env(safe-area-inset-right));
+        }
+
+        .rotate-prompt-icon {
+            font-size: 64px;
+            animation: rotateIcon 2s ease-in-out infinite;
+        }
+
+        @keyframes rotateIcon {
+            0%   { transform: rotate(0deg); }
+            40%  { transform: rotate(90deg); }
+            60%  { transform: rotate(90deg); }
+            100% { transform: rotate(0deg); }
+        }
+
+        .rotate-prompt h2 {
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 15px rgba(255, 107, 0, 0.8);
+            margin: 0;
+        }
+
+        .rotate-prompt p {
+            font-size: 16px;
+            opacity: 0.8;
+            margin: 0;
+        }
+
+        /* Show rotate prompt on touch landscape with very small height */
+        @media (hover: none) and (pointer: coarse) and (orientation: landscape) and (max-height: 430px) {
+            .rotate-prompt { display: flex; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .rotate-prompt-icon { animation: none; transform: rotate(45deg); }
+        }
     </style>
 </head>
 <body>
+    <!-- Landscape rotate prompt (CSS shows it on touch landscape viewports) -->
+    <div class="rotate-prompt" aria-live="polite">
+        <div class="rotate-prompt-icon">&#x1F4F1;</div>
+        <h2>ROTATE YOUR DEVICE</h2>
+        <p>Flappy Apocalypse plays best in portrait mode</p>
+    </div>
     <div class="container" id="gameContainer">
         <button class="customize-btn" id="customizeBtn" title="Customize bird" aria-label="Customize bird">⚙️</button>
         <button class="sound-toggle" id="soundToggle" title="Toggle sound" aria-label="Toggle sound">🔊</button>
@@ -1645,13 +1709,34 @@
         const ctx = canvas.getContext('2d');
         const gameContainer = document.getElementById('gameContainer');
 
-        // Responsive canvas
+        // ─── Haptic feedback helper ────────────────────────────────────────
+        function haptic(pattern) {
+            try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {}
+        }
+
+        // ─── Orientation lock (portrait preferred) ─────────────────────────
+        (function tryOrientationLock() {
+            try {
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('portrait').catch(() => {});
+                }
+            } catch (e) {}
+        })();
+
+        // Responsive canvas – uses visualViewport when available for accurate
+        // dimensions on notched/zoomed mobile browsers
         function resizeCanvas() {
-            canvas.width = window.innerWidth > 600 ? 600 : window.innerWidth;
-            canvas.height = window.innerHeight;
+            const vvp = window.visualViewport;
+            const w = vvp ? Math.round(vvp.width)  : window.innerWidth;
+            const h = vvp ? Math.round(vvp.height) : window.innerHeight;
+            canvas.width  = w > 600 ? 600 : w;
+            canvas.height = h;
         }
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', resizeCanvas);
+        }
 
         // Difficulty settings
         const difficultySettings = {
@@ -2078,7 +2163,255 @@
         let pipeCounter = 0;
         let pipeSpeed = 3;
         let pipeFrequency = 90;
-        const version = '0.5.0';
+        const version = '0.6.0';
+
+        // ─── XP & Level System ────────────────────────────────────────────
+        // Level thresholds: how much TOTAL XP to reach each level
+        const XP_LEVELS = [
+            0,      // Level 1
+            100,    // Level 2
+            250,    // Level 3
+            450,    // Level 4
+            700,    // Level 5
+            1000,   // Level 6
+            1400,   // Level 7
+            1900,   // Level 8
+            2500,   // Level 9
+            3200,   // Level 10
+            4000,   // Level 11
+            4900,   // Level 12
+            5900,   // Level 13
+            7000,   // Level 14
+            8200,   // Level 15
+            9500,   // Level 16  -- (levels 17-20 are beyond, handled below)
+            10000,  // Level 17 (placeholder, handled as max+increment)
+            10800,  // Level 18
+            11700,  // Level 19
+            12700   // Level 20
+        ];
+        const MAX_LEVEL = 20;
+
+        // Which skins unlock at each level (skin key => required level)
+        const SKIN_LEVEL_REQUIREMENTS = {
+            classic:  1,
+            void:     2,
+            inferno:  4,
+            ghost:    6,
+            neon:     8,
+            skeleton: 10,
+            metal:    12,
+            cosmic:   15
+        };
+
+        const xpManager = {
+            totalXP: parseInt(localStorage.getItem('stats.totalXP') || '0', 10),
+            currentLevel: parseInt(localStorage.getItem('stats.currentLevel') || '1', 10),
+            runXP: 0,   // XP earned this run (not yet committed to total)
+
+            getLevelForXP(xp) {
+                let level = 1;
+                for (let i = 1; i < XP_LEVELS.length; i++) {
+                    if (xp >= XP_LEVELS[i]) level = i + 1;
+                    else break;
+                }
+                return Math.min(level, MAX_LEVEL);
+            },
+
+            getXPForLevel(level) {
+                if (level <= 1) return 0;
+                return XP_LEVELS[Math.min(level - 1, XP_LEVELS.length - 1)];
+            },
+
+            getNextLevelXP(level) {
+                if (level >= MAX_LEVEL) return XP_LEVELS[XP_LEVELS.length - 1];
+                return XP_LEVELS[Math.min(level, XP_LEVELS.length - 1)];
+            },
+
+            isSkinUnlocked(skinKey) {
+                const req = SKIN_LEVEL_REQUIREMENTS[skinKey] || 1;
+                return this.currentLevel >= req;
+            },
+
+            addXP(amount) {
+                const multiplier = game.activePowerUps && game.activePowerUps.doublepoints ? 2 : 1;
+                const gained = amount * multiplier;
+                this.runXP += gained;
+                return gained;
+            },
+
+            commitRunXP() {
+                const oldLevel = this.currentLevel;
+                this.totalXP += this.runXP;
+                this.runXP = 0;
+                const newLevel = this.getLevelForXP(this.totalXP);
+                this.currentLevel = newLevel;
+                localStorage.setItem('stats.totalXP', this.totalXP);
+                localStorage.setItem('stats.currentLevel', this.currentLevel);
+                return { oldLevel, newLevel };
+            },
+
+            // Call during gameplay (preview XP without committing)
+            getPreviewXP() {
+                return this.totalXP + this.runXP;
+            },
+
+            resetRunXP() {
+                this.runXP = 0;
+            }
+        };
+
+        // ─── XP Bar UI Update ─────────────────────────────────────────────
+        function updateXPBar() {
+            const previewXP = xpManager.getPreviewXP();
+            const level = xpManager.getLevelForXP(previewXP);
+            const levelXP = xpManager.getXPForLevel(level);
+            const nextXP = xpManager.getNextLevelXP(level);
+            const progressXP = previewXP - levelXP;
+            const rangeXP = nextXP - levelXP;
+            const pct = level >= MAX_LEVEL ? 100 : Math.min(100, (progressXP / rangeXP) * 100);
+
+            document.getElementById('xpLevelLabel').textContent = 'Lv.' + level;
+            document.getElementById('xpBarFill').style.width = pct + '%';
+
+            if (level >= MAX_LEVEL) {
+                document.getElementById('xpProgressText').textContent = 'MAX LEVEL';
+            } else {
+                document.getElementById('xpProgressText').textContent = progressXP + ' / ' + rangeXP + ' XP';
+            }
+        }
+
+        // ─── Show floating XP text ────────────────────────────────────────
+        function showXPFloat(amount) {
+            const container = document.getElementById('gameContainer');
+            const el = document.createElement('div');
+            el.className = 'xp-float';
+            const multi = (game.activePowerUps && game.activePowerUps.doublepoints) ? ' (x2!)' : '';
+            el.textContent = '+' + amount + ' XP' + multi;
+            // Position near right side, random vertical offset
+            el.style.right = '25px';
+            el.style.top = (140 + Math.random() * 40) + 'px';
+            container.appendChild(el);
+            setTimeout(() => el.remove(), 1300);
+        }
+
+        // ─── Level-Up Popup & Confetti ────────────────────────────────────
+        let confettiParticles = [];
+        let confettiAnimId = null;
+
+        function spawnConfetti(canvas) {
+            const colors = ['#ffcc00', '#ff6b00', '#ff4500', '#fff', '#ff8c00', '#ffff00'];
+            confettiParticles = [];
+            for (let i = 0; i < 120; i++) {
+                confettiParticles.push({
+                    x: Math.random() * canvas.width,
+                    y: -10 - Math.random() * 40,
+                    w: 8 + Math.random() * 8,
+                    h: 5 + Math.random() * 5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: 2 + Math.random() * 4,
+                    rot: Math.random() * Math.PI * 2,
+                    rotSpeed: (Math.random() - 0.5) * 0.2,
+                    life: 1.0
+                });
+            }
+        }
+
+        function animateConfetti(canvas, ctx2d) {
+            ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+            let anyAlive = false;
+            for (const p of confettiParticles) {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.rot += p.rotSpeed;
+                p.life -= 0.008;
+                if (p.life <= 0) continue;
+                anyAlive = true;
+                ctx2d.save();
+                ctx2d.globalAlpha = Math.max(0, p.life);
+                ctx2d.translate(p.x, p.y);
+                ctx2d.rotate(p.rot);
+                ctx2d.fillStyle = p.color;
+                ctx2d.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+                ctx2d.restore();
+            }
+            if (anyAlive) {
+                confettiAnimId = requestAnimationFrame(() => animateConfetti(canvas, ctx2d));
+            } else {
+                ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        function showLevelUpPopup(newLevel) {
+            const overlay = document.getElementById('levelupOverlay');
+            const popup = document.getElementById('levelupPopup');
+            const levelText = document.getElementById('levelupLevelText');
+            const unlockEl = document.getElementById('levelupUnlock');
+            const confCanvas = document.getElementById('confettiCanvas');
+            const confCtx = confCanvas.getContext('2d');
+
+            confCanvas.width = overlay.offsetWidth || window.innerWidth;
+            confCanvas.height = overlay.offsetHeight || window.innerHeight;
+
+            levelText.textContent = 'Level ' + newLevel;
+
+            // Check if a skin was unlocked at this level
+            const unlockedSkin = Object.entries(SKIN_LEVEL_REQUIREMENTS)
+                .find(([key, req]) => req === newLevel);
+            if (unlockedSkin) {
+                const skinName = birdSkins[unlockedSkin[0]] ? birdSkins[unlockedSkin[0]].name : unlockedSkin[0];
+                unlockEl.textContent = '\u{1F513} Unlocked: ' + skinName + ' Skin!';
+                unlockEl.classList.add('visible');
+            } else {
+                unlockEl.classList.remove('visible');
+            }
+
+            overlay.classList.add('active');
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => { popup.classList.add('show'); });
+            });
+
+            // Play level-up sound
+            playSound(600, 0.12);
+            setTimeout(() => playSound(800, 0.12), 100);
+            setTimeout(() => playSound(1000, 0.15), 200);
+            setTimeout(() => playSound(1200, 0.2), 320);
+
+            spawnConfetti(confCanvas);
+            if (confettiAnimId) cancelAnimationFrame(confettiAnimId);
+            animateConfetti(confCanvas, confCtx);
+
+            setTimeout(() => {
+                popup.classList.remove('show');
+                setTimeout(() => {
+                    overlay.classList.remove('active');
+                    confettiParticles = [];
+                    if (confettiAnimId) cancelAnimationFrame(confettiAnimId);
+                    confCtx.clearRect(0, 0, confCanvas.width, confCanvas.height);
+                }, 400);
+            }, 3000);
+        }
+
+        // ─── Award XP helper (called from game events) ───────────────────
+        // streakCount: current streak count (for 5-pipe bonus)
+        let lastStreakBonusAt = 0;  // track last streak multiple that got bonus
+
+        function awardXP(reason, streakCount) {
+            let amount = 0;
+            if (reason === 'pipe') {
+                amount = 1;
+            } else if (reason === 'powerup') {
+                amount = 5;
+            } else if (reason === 'streak5' && streakCount % 5 === 0 && streakCount !== lastStreakBonusAt) {
+                amount = 10;
+                lastStreakBonusAt = streakCount;
+            }
+            if (amount === 0) return;
+            const gained = xpManager.addXP(amount);
+            showXPFloat(gained);
+            updateXPBar();
+        }
+
 
         // ─── Death sequence state ──────────────────────────────────────────
         const deathSequence = {
@@ -3290,9 +3623,12 @@
                     pipe.scored = true;
                     game.score += pointMultiplier;
                     addToStreak();
+                    awardXP('pipe');
+                    awardXP('streak5', game.streak);
                     document.getElementById('score').textContent = game.score;
                     scoreSound();
                     flashScore();
+                    haptic(30); // subtle haptic on each point scored
                     // Burst particles at the gap midpoint beside the bird
                     spawnPipeParticles(bird.x, pipe.top + pipeGap / 2);
 
@@ -3321,6 +3657,7 @@
                     pu.collected = true;
                     spawnPowerUpParticles(pu.x, pu.y, pu.type);
                     activatePowerUp(pu.type);
+                    awardXP('powerup');
                 }
 
                 if (pu.x + 50 < 0) powerUps.splice(index, 1);
@@ -3611,9 +3948,18 @@
             updateMultiplierDisplay();
 
             gameOverSound();
+            haptic([40, 30, 80, 30, 120]); // strong haptic pattern on game over
 
             // Record run statistics
             statsManager.endRun(game.score);
+
+            // Commit XP and check for level-up
+            lastStreakBonusAt = 0;
+            const xpResult = xpManager.commitRunXP();
+            updateXPBar();
+            if (xpResult.newLevel > xpResult.oldLevel) {
+                setTimeout(() => showLevelUpPopup(xpResult.newLevel), 800);
+            }
 
             const screen = document.getElementById('gameOverScreen');
             screen.style.display = 'block';
@@ -3773,6 +4119,7 @@
                 bird.velocity = bird.lift;
                 jumpSound();
                 spawnJumpRing();
+                haptic(18); // light haptic pulse on each flap
 
                 // Visual tap feedback on mobile
                 if (e.touches) {
@@ -3931,14 +4278,18 @@
             skinsGrid.innerHTML = '';
 
             Object.entries(birdSkins).forEach(([skinKey, skinData]) => {
+                const isUnlocked = xpManager.isSkinUnlocked(skinKey);
+                const reqLevel = SKIN_LEVEL_REQUIREMENTS[skinKey] || 1;
+
                 const card = document.createElement('div');
                 card.className = 'skin-card';
-                if (game.selectedSkin === skinKey) {
+                if (!isUnlocked) card.classList.add('locked-skin');
+                if (game.selectedSkin === skinKey && isUnlocked) {
                     card.classList.add('selected');
                 }
 
-                // Add touch feedback
-                addTouchFeedback(card);
+                // Add touch feedback only if unlocked
+                if (isUnlocked) addTouchFeedback(card);
 
                 const preview = document.createElement('canvas');
                 preview.className = 'skin-preview';
@@ -3950,24 +4301,35 @@
                 previewCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
                 previewCtx.fillRect(0, 0, 120, 90);
 
-                previewCtx.save();
-                previewCtx.translate(60, 45);
+                if (isUnlocked) {
+                    previewCtx.save();
+                    previewCtx.translate(60, 45);
 
-                // Mock bird state for preview
-                const prevBird = { ...bird, radius: 12, wingRotation: 0.2, velocity: 0 };
-                const origBird = bird;
-                Object.assign(bird, prevBird);
+                    // Mock bird state for preview
+                    const prevBird = { ...bird, radius: 12, wingRotation: 0.2, velocity: 0 };
+                    const origBird = bird;
+                    Object.assign(bird, prevBird);
 
-                // Temporarily set skin for drawing
-                const tempSkin = game.selectedSkin;
-                game.selectedSkin = skinKey;
+                    // Temporarily set skin for drawing
+                    const tempSkin = game.selectedSkin;
+                    game.selectedSkin = skinKey;
 
-                // Draw the bird preview
-                skinData.draw.call(null);
+                    // Draw the bird preview
+                    skinData.draw.call(null);
 
-                game.selectedSkin = tempSkin;
-                Object.assign(bird, origBird);
-                previewCtx.restore();
+                    game.selectedSkin = tempSkin;
+                    Object.assign(bird, origBird);
+                    previewCtx.restore();
+                } else {
+                    // Locked overlay
+                    previewCtx.fillStyle = 'rgba(0,0,0,0.7)';
+                    previewCtx.fillRect(0, 0, 120, 90);
+                    previewCtx.fillStyle = '#555';
+                    previewCtx.font = 'bold 32px Arial';
+                    previewCtx.textAlign = 'center';
+                    previewCtx.textBaseline = 'middle';
+                    previewCtx.fillText('\uD83D\uDD12', 60, 45);
+                }
 
                 card.appendChild(preview);
 
@@ -3977,11 +4339,24 @@
                 card.appendChild(name);
 
                 const badge = document.createElement('div');
-                badge.className = 'skin-badge unlocked';
-                badge.textContent = 'FREE';
+                if (isUnlocked) {
+                    badge.className = reqLevel === 1 ? 'skin-badge free' : 'skin-badge unlocked';
+                    badge.textContent = reqLevel === 1 ? 'FREE' : 'UNLOCKED';
+                } else {
+                    badge.className = 'skin-badge locked';
+                    badge.textContent = 'LOCKED - Level ' + reqLevel;
+                }
                 card.appendChild(badge);
 
                 card.addEventListener('click', () => {
+                    if (!isUnlocked) {
+                        // Show a small message
+                        badge.textContent = '\uD83D\uDD12 Reach Level ' + reqLevel;
+                        setTimeout(() => {
+                            badge.textContent = 'LOCKED - Level ' + reqLevel;
+                        }, 1500);
+                        return;
+                    }
                     selectBirdSkin(skinKey);
                 });
 
@@ -4020,6 +4395,12 @@
         });
 
         // ─── Boot ──────────────────────────────────────────────────────────
+        // Validate saved skin — if locked due to level, revert to classic
+        if (!xpManager.isSkinUnlocked(game.selectedSkin)) {
+            game.selectedSkin = 'classic';
+            localStorage.setItem('selectedBirdSkin', 'classic');
+        }
+
         gameLoop();
 
         // Initialize UI
@@ -4027,6 +4408,7 @@
         document.getElementById('highScore').textContent = game.highScore;
         updateStreakDisplay();
         updateSoundButtonUI();
+        updateXPBar();
 
         // Show customize button on page load (difficulty selector is visible)
         document.getElementById('customizeBtn').classList.add('visible');
