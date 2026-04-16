@@ -441,6 +441,8 @@
             invulnerable: false,
             invulnerabilityTimer: 0,
             invincibleHits: 0,
+            comboMultiplier: 1,
+            consecutivePipes: 0,
             soundEnabled: localStorage.getItem('flappyBirdSoundEnabled') !== 'false' ? true : false,
             selectedSkin: localStorage.getItem('selectedBirdSkin') || 'classic'
         };
@@ -784,6 +786,10 @@
                 lastStreakBonusAt = streakCount;
             }
             if (amount === 0) return;
+            // Level-based XP multiplier: +2% per level (caps at 1.4x for level 20)
+            const currentLevel = getEffectiveLevel();
+            const xpMultiplier = 1 + Math.min(0.4, (currentLevel - 1) * 0.02);
+            amount = Math.floor(amount * xpMultiplier);
             const gained = xpManager.addXP(amount);
             showXPFloat(gained);
             updateXPBar();
@@ -1453,12 +1459,18 @@
 
         function resetStreak() {
             game.streak = 0;
+            game.comboMultiplier = 1;
+            game.consecutivePipes = 0;
             updateStreakDisplay();
         }
 
         // ─── Power-up management ──────────────────────────────────────────
         function spawnPowerUp(x, y) {
-            const types = ['shield', 'powbomb', 'doublepoints'];
+            // Rare power-ups at higher levels
+            const currentLevel = getEffectiveLevel();
+            let types = ['shield', 'powbomb', 'doublepoints'];
+            if (currentLevel >= 5) types.push('slowmo');
+            if (currentLevel >= 10) types.push('invincible');
             const type = types[Math.floor(Math.random() * types.length)];
             powerUps.push({
                 x: x,
@@ -1593,9 +1605,16 @@
         function updateMultiplierDisplay() {
             const display = document.getElementById('multiplierDisplay');
             const multiplier = document.getElementById('multiplier');
-            if (pointMultiplier > 1) {
+            // Show multiplier if either score multiplier or combo multiplier is active
+            const combinedMultiplier = pointMultiplier * game.comboMultiplier;
+            if (combinedMultiplier > 1) {
                 display.style.display = 'block';
-                multiplier.textContent = pointMultiplier;
+                // Show combo indicator if active
+                if (game.comboMultiplier > 1) {
+                    multiplier.textContent = `${combinedMultiplier.toFixed(1)}x (${game.consecutivePipes} combo)`;
+                } else {
+                    multiplier.textContent = `${pointMultiplier}x`;
+                }
             } else {
                 display.style.display = 'none';
             }
@@ -2217,11 +2236,17 @@
 
                 if (!pipe.scored && pipe.x + pipeWidth < bird.x) {
                     pipe.scored = true;
+                    // Increment consecutive pipes (combo system)
+                    game.consecutivePipes++;
+                    // Combo multiplier: 1x at start, up to 3x at 10+ consecutive pipes
+                    game.comboMultiplier = Math.min(3, 1 + (game.consecutivePipes / 10));
+
                     // Level-based score bonus: +1 point per 2 levels (0.5% per level)
                     const currentLevel = getEffectiveLevel();
                     const levelBonus = Math.floor(currentLevel / 2);
                     const baseScore = 1 + levelBonus;
-                    game.score += baseScore * pointMultiplier;
+                    const comboScore = Math.floor(baseScore * pointMultiplier * game.comboMultiplier);
+                    game.score += comboScore;
                     addToStreak();
                     awardXP('pipe');
                     awardXP('streak5', game.streak);
@@ -2229,6 +2254,7 @@
                     scoreSound();
                     flashScore();
                     haptic(30); // subtle haptic on each point scored
+                    updateMultiplierDisplay(); // Update combo display
                     // Burst particles at the gap midpoint beside the bird
                     spawnPipeParticles(bird.x, pipe.top + pipeGap / 2);
 
