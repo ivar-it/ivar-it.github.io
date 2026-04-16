@@ -553,7 +553,9 @@
 
             isSkinUnlocked(skinKey) {
                 const req = SKIN_LEVEL_REQUIREMENTS[skinKey] || 1;
-                return this.currentLevel >= req;
+                // Check preview level (includes current run XP)
+                const previewLevel = this.getLevelForXP(this.getPreviewXP());
+                return previewLevel >= req;
             },
 
             addXP(amount) {
@@ -632,8 +634,14 @@
         let confettiParticles = [];
         let confettiAnimId = null;
 
+        // Helper to get effective level (current + preview)
+        function getEffectiveLevel() {
+            const previewXP = xpManager.getPreviewXP();
+            return xpManager.getLevelForXP(previewXP);
+        }
+
         function getConfettiColorsForLevel() {
-            const currentLevel = xpManager.currentLevel;
+            const currentLevel = getEffectiveLevel();
 
             // Mix theme accent color with level-appropriate colors
             if (currentLevel <= 5) {
@@ -949,7 +957,7 @@
         const particles = [];
 
         function getPipeParticleColorsForLevel() {
-            const currentLevel = xpManager.currentLevel;
+            const currentLevel = getEffectiveLevel();
             if (currentLevel <= 5) {
                 return ['#ff6b00', '#ff4500', '#ff8c00', '#ff2200', '#ffaa00'];
             } else if (currentLevel <= 10) {
@@ -1610,7 +1618,7 @@
         }
 
         function getExplosionColorsForLevel() {
-            const currentLevel = xpManager.currentLevel;
+            const currentLevel = getEffectiveLevel();
             if (currentLevel <= 5) {
                 return ['#ff4500', '#ff6b00', '#ff8c00', '#ffaa00', '#ff2200'];
             } else if (currentLevel <= 10) {
@@ -1946,7 +1954,7 @@
         // ─── Draw pipes (with 3-D depth effect) ───────────────────────────
         function drawPipes() {
             // Get current level's color scheme
-            const currentLevel = xpManager.currentLevel;
+            const currentLevel = getEffectiveLevel();
             const colors = LEVEL_COLOR_SCHEMES[currentLevel] || LEVEL_COLOR_SCHEMES[1];
             const pipeColors = colors.pipe;
 
@@ -2026,7 +2034,7 @@
         // ─── Draw background ───────────────────────────────────────────────
         function drawBackground() {
             // Get current level's color scheme
-            const currentLevel = xpManager.currentLevel;
+            const currentLevel = getEffectiveLevel();
             const colors = LEVEL_COLOR_SCHEMES[currentLevel] || LEVEL_COLOR_SCHEMES[1];
 
             const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
@@ -2704,6 +2712,15 @@
 
         // ─── Keyboard Controls ────────────────────────────────────────────
         document.addEventListener('keydown', (e) => {
+            // DEBUG: Ctrl+L to cycle through levels for testing
+            if (e.ctrlKey && e.code === 'KeyL') {
+                e.preventDefault();
+                xpManager.currentLevel = xpManager.currentLevel >= MAX_LEVEL ? 1 : xpManager.currentLevel + 1;
+                localStorage.setItem('stats.currentLevel', xpManager.currentLevel);
+                updateXPBar();
+                console.log(`[DEBUG] Level set to ${xpManager.currentLevel}`);
+                return;
+            }
             // SPACE or UP ARROW to fly
             if (e.code === 'Space' || e.code === 'ArrowUp') {
                 e.preventDefault();
