@@ -238,33 +238,25 @@
         let musicTimeoutId = null;
 
         function playMelodySequence() {
-            // Dark Tetris-style apocalyptic melody
+            // Dark Tetris-style apocalyptic melody (simplified)
             const melody = [
-                // Main theme - lower octave, sinister
-                { freq: 110, duration: 0.4 },   // E low
-                { freq: 147.83, duration: 0.4 }, // D
-                { freq: 110, duration: 0.4 },   // E low
-                { freq: 147.83, duration: 0.4 }, // D
-                { freq: 110, duration: 0.8 },   // E low held
-                { freq: 164.81, duration: 0.4 }, // E
-                { freq: 220, duration: 0.4 },   // A
-                { freq: 247.14, duration: 0.8 }, // B
+                { freq: 110, duration: 0.35 },   // E low
+                { freq: 130, duration: 0.35 },   // C#
+                { freq: 110, duration: 0.35 },   // E low
+                { freq: 130, duration: 0.35 },   // C#
+                { freq: 110, duration: 0.7 },    // E low held
+                { freq: 165, duration: 0.35 },   // E
+                { freq: 220, duration: 0.35 },   // A
+                { freq: 246, duration: 0.7 },    // B
 
-                // Descending sinister part
-                { freq: 196, duration: 0.4 },   // G
-                { freq: 164.81, duration: 0.4 }, // E
-                { freq: 147.83, duration: 0.4 }, // D
-                { freq: 123.47, duration: 0.8 }, // B low
-                { freq: 147.83, duration: 0.4 }, // D
-                { freq: 164.81, duration: 0.4 }, // E
-                { freq: 196, duration: 0.4 },   // G
-                { freq: 220, duration: 0.8 },   // A
-
-                // Darker build
-                { freq: 110, duration: 0.4 },   // E low
-                { freq: 147.83, duration: 0.4 }, // D
-                { freq: 110, duration: 0.4 },   // E low
-                { freq: 82.41, duration: 1.0 }, // E very low
+                { freq: 196, duration: 0.35 },   // G
+                { freq: 165, duration: 0.35 },   // E
+                { freq: 130, duration: 0.35 },   // C#
+                { freq: 98, duration: 0.7 },     // B low
+                { freq: 130, duration: 0.35 },   // C#
+                { freq: 165, duration: 0.35 },   // E
+                { freq: 196, duration: 0.35 },   // G
+                { freq: 220, duration: 0.7 },    // A
             ];
 
             if (!musicPlaying) return;
@@ -281,12 +273,12 @@
                 delay += note.duration + 0.05;
             });
 
-            // Loop after 10 seconds
+            // Loop after melody completes (~8.5 seconds)
             musicTimeoutId = setTimeout(() => {
                 if (musicPlaying) {
                     playMelodySequence();
                 }
-            }, 10000);
+            }, 8500);
         }
 
         function playStartMusic() {
