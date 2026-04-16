@@ -456,7 +456,7 @@
         let pipeCounter = 0;
         let pipeSpeed = 3;
         let pipeFrequency = 90;
-        const version = '0.6.3';
+        const version = '0.7.0';
 
         // ─── XP & Level System ────────────────────────────────────────────
         // Level thresholds: how much TOTAL XP to reach each level
@@ -1049,48 +1049,104 @@
 
         // ─── Audio ────────────────────────────────────────────────────────
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const audioBuffers = {};
+        const audioSources = [];
 
-        function playSound(freq, duration, type = 'sine') {
+        // Audio file mapping
+        const audioFiles = {
+            jump: 'jump.mp3',
+            score: 'score.mp3',
+            gameOver: 'game-over.mp3',
+            powerUp: 'power-up.mp3',
+            shield: 'shield.mp3',
+            powBomb: 'pow-bomb.mp3',
+            menuMusic: 'menu-music.mp3',
+            levelUp: 'levelup.mp3',
+            startHint: 'start-hint.mp3'
+        };
+
+        // Load an audio file and decode it
+        async function loadAudioFile(key, filename) {
+            try {
+                const response = await fetch(filename);
+                if (!response.ok) throw new Error(`Failed to fetch ${filename}`);
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                audioBuffers[key] = audioBuffer;
+                console.log(`[AUDIO] Loaded ${key}: ${filename}`);
+            } catch (e) {
+                console.error(`[AUDIO] Failed to load ${filename}:`, e);
+            }
+        }
+
+        // Initialize: Load all essential audio files
+        async function initializeAudio() {
+            console.log('[AUDIO] Initializing audio system...');
+            if (audioCtx.state === 'suspended') {
+                await audioCtx.resume();
+            }
+            // Pre-load critical sounds
+            await Promise.all([
+                loadAudioFile('jump', audioFiles.jump),
+                loadAudioFile('score', audioFiles.score),
+                loadAudioFile('gameOver', audioFiles.gameOver),
+                loadAudioFile('menuMusic', audioFiles.menuMusic),
+                loadAudioFile('powerUp', audioFiles.powerUp),
+                loadAudioFile('shield', audioFiles.shield),
+                loadAudioFile('powBomb', audioFiles.powBomb),
+                loadAudioFile('levelUp', audioFiles.levelUp),
+                loadAudioFile('startHint', audioFiles.startHint)
+            ]);
+            console.log('[AUDIO] All audio files loaded');
+        }
+
+        // Play an audio buffer
+        function playAudioBuffer(key) {
             if (!game.soundEnabled) return;
+            if (!audioBuffers[key]) {
+                console.warn(`[AUDIO] Buffer not found: ${key}`);
+                return;
+            }
 
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.frequency.value = freq;
-            osc.type = type;
-            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-            osc.start(audioCtx.currentTime);
-            osc.stop(audioCtx.currentTime + duration);
+            try {
+                const source = audioCtx.createBufferSource();
+                source.buffer = audioBuffers[key];
+                const gain = audioCtx.createGain();
+                source.connect(gain);
+                gain.connect(audioCtx.destination);
+                source.start(0);
+                audioSources.push(source);
+                // Clean up sources after they finish
+                source.onended = () => {
+                    audioSources.splice(audioSources.indexOf(source), 1);
+                };
+            } catch (e) {
+                console.error(`[AUDIO] Error playing ${key}:`, e);
+            }
         }
 
         function jumpSound() {
-            playSound(400, 0.1);
+            playAudioBuffer('jump');
         }
 
         function scoreSound() {
-            playSound(800, 0.15);
-            setTimeout(() => playSound(1000, 0.15), 75);
+            playAudioBuffer('score');
         }
 
         function gameOverSound() {
-            playSound(200, 0.5);
+            playAudioBuffer('gameOver');
         }
 
         function collectPowerUpSound() {
-            playSound(1200, 0.08);
-            setTimeout(() => playSound(1400, 0.08), 50);
+            playAudioBuffer('powerUp');
         }
 
         function shieldBlockSound() {
-            playSound(600, 0.2);
-            setTimeout(() => playSound(800, 0.2), 100);
+            playAudioBuffer('shield');
         }
 
         function playPowSound() {
-            playSound(300, 0.05, 'square');
-            setTimeout(() => playSound(150, 0.1, 'square'), 50);
+            playAudioBuffer('powBomb');
         }
 
         let screenFlash = {
@@ -1105,60 +1161,35 @@
         }
 
         let musicPlaying = false;
-        let musicTimeoutId = null;
+        let musicSource = null;
 
         function playMelodySequence() {
-            if (!game.soundEnabled) {
+            if (!game.soundEnabled || !audioBuffers['menuMusic']) {
                 musicPlaying = false;
                 return;
             }
-
-            const melody = [
-                { freq: 110, duration: 0.35 },
-                { freq: 130, duration: 0.35 },
-                { freq: 110, duration: 0.35 },
-                { freq: 130, duration: 0.35 },
-                { freq: 110, duration: 0.7 },
-                { freq: 165, duration: 0.35 },
-                { freq: 220, duration: 0.35 },
-                { freq: 246, duration: 0.7 },
-                { freq: 196, duration: 0.35 },
-                { freq: 165, duration: 0.35 },
-                { freq: 130, duration: 0.35 },
-                { freq: 98,  duration: 0.7 },
-                { freq: 130, duration: 0.35 },
-                { freq: 165, duration: 0.35 },
-                { freq: 196, duration: 0.35 },
-                { freq: 220, duration: 0.7 },
-            ];
-
-            if (!musicPlaying) return;
-
-            let delay = 0;
-            melody.forEach(note => {
-                if (musicPlaying && game.soundEnabled) {
-                    setTimeout(() => {
-                        if (musicPlaying && game.soundEnabled) playSound(note.freq, note.duration * 0.8, 'sawtooth');
-                    }, delay * 1000);
-                }
-                delay += note.duration + 0.05;
-            });
-
-            musicTimeoutId = setTimeout(() => {
-                if (musicPlaying && game.soundEnabled) playMelodySequence();
-            }, 8500);
+            // Menu music is looping, play it continuously
+            playAudioBuffer('menuMusic');
         }
 
         function playStartMusic() {
             if (musicPlaying) return;
             musicPlaying = true;
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            playMelodySequence();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume().then(() => {
+                    if (musicPlaying) playMelodySequence();
+                });
+            } else {
+                playMelodySequence();
+            }
         }
 
         function stopStartMusic() {
             musicPlaying = false;
-            if (musicTimeoutId) clearTimeout(musicTimeoutId);
+            // Stop any currently playing music sources
+            audioSources.forEach(source => {
+                try { source.stop(); } catch (e) {}
+            });
         }
 
         // ─── Message queue system for popups ──────────────────────────────
@@ -2866,8 +2897,11 @@
 
         gameLoop();
 
-        // Initialize UI
-        setTimeout(() => { playStartMusic(); }, 100);
+        // Initialize audio system and play menu music
+        setTimeout(async () => {
+            await initializeAudio();
+            playStartMusic();
+        }, 100);
         document.getElementById('highScore').textContent = game.highScore;
         updateStreakDisplay();
         updateSoundButtonUI();
