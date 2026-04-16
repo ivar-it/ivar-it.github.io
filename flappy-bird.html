@@ -146,6 +146,52 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+
+        .motivation-popup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            background: rgba(255, 107, 0, 0.95);
+            color: #000;
+            padding: 30px 40px;
+            border-radius: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 25;
+            text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            display: none;
+            border: 3px solid #ff4500;
+            animation: popupAppear 0.3s ease-out forwards;
+            max-width: 80%;
+            text-align: center;
+        }
+
+        @keyframes popupAppear {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.5);
+            }
+            100% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        @keyframes popupDisappear {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+        }
+
+        .motivation-popup.disappear {
+            animation: popupDisappear 0.3s ease-in forwards;
+        }
     </style>
 </head>
 <body>
@@ -165,6 +211,7 @@
             <p>APOCALYPSE</p>
             <div class="hint">↑ TAP or CLICK to START ↑</div>
         </div>
+        <div class="motivation-popup" id="motivationPopup"></div>
         <div class="instructions">TAP or CLICK to fly • Avoid pipes</div>
     </div>
 
@@ -202,7 +249,7 @@
         const pipeGap = 210;
         const pipeWidth = 50;
         let pipeCounter = 0;
-        const version = '1.7';
+        const version = '1.8';
         let scrollOffset = 0;
 
         // Audio context for sound effects
@@ -292,6 +339,35 @@
             if (musicTimeoutId) {
                 clearTimeout(musicTimeoutId);
             }
+        }
+
+        // Motivational messages for every 10th pipe
+        const motivationalMessages = [
+            '🔥 INSANE! 🔥',
+            '☠️ UNSTOPPABLE ☠️',
+            '💀 LEGEND! 💀',
+            '🌪️ APOCALYPTIC! 🌪️',
+            '⚡ BEAST MODE ⚡',
+            '🔥 DOMINATING! 🔥',
+            '💥 DESTRUCTIVE! 💥',
+            '👑 SURVIVOR 👑',
+            '🎯 FLAWLESS! 🎯',
+            '🌪️ ON FIRE! 🌪️'
+        ];
+
+        function showMotivation() {
+            const popup = document.getElementById('motivationPopup');
+            const message = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
+            popup.textContent = message;
+            popup.style.display = 'block';
+            popup.classList.remove('disappear');
+
+            setTimeout(() => {
+                popup.classList.add('disappear');
+                setTimeout(() => {
+                    popup.style.display = 'none';
+                }, 300);
+            }, 1800);
         }
 
         // Draw bird
@@ -410,6 +486,11 @@
                     game.score++;
                     document.getElementById('score').textContent = game.score;
                     scoreSound();
+
+                    // Show motivation on every 10th pipe
+                    if (game.score % 10 === 0) {
+                        showMotivation();
+                    }
                 }
 
                 // Remove off-screen pipes
