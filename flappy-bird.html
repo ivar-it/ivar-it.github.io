@@ -106,6 +106,46 @@
             text-align: center;
             opacity: 0.7;
         }
+
+        .start-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 50px;
+            border-radius: 10px;
+            text-align: center;
+            color: #ff6b00;
+            z-index: 20;
+            border: 3px solid #ff6b00;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .start-screen h1 {
+            font-size: 54px;
+            text-shadow: 0 0 20px rgba(255, 107, 0, 1);
+            margin: 0;
+        }
+
+        .start-screen p {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+
+        .start-screen .hint {
+            font-size: 16px;
+            color: #ff8c00;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
     </style>
 </head>
 <body>
@@ -119,6 +159,11 @@
             <p>Final Score: <span id="finalScore">0</span></p>
             <p>High Score: <span id="highScore">0</span></p>
             <button onclick="location.reload()">RESTART</button>
+        </div>
+        <div class="start-screen" id="startScreen">
+            <h1>FLAPPY BIRD</h1>
+            <p>APOCALYPSE</p>
+            <div class="hint">↑ TAP or CLICK to START ↑</div>
         </div>
         <div class="instructions">TAP or CLICK to fly • Avoid pipes</div>
     </div>
@@ -157,7 +202,7 @@
         const pipeGap = 210;
         const pipeWidth = 50;
         let pipeCounter = 0;
-        const version = '1.2';
+        const version = '1.3';
         let scrollOffset = 0;
 
         // Audio context for sound effects
@@ -274,7 +319,7 @@
 
         // Update game
         function update() {
-            if (game.gameOver) return;
+            if (game.gameOver || !game.started) return;
 
             scrollOffset += 1;
 
@@ -368,12 +413,14 @@
 
         function fly(e) {
             e.preventDefault();
-            bird.velocity = bird.lift;
-            jumpSound();
 
             if (!game.started) {
                 game.started = true;
+                document.getElementById('startScreen').style.display = 'none';
             }
+
+            bird.velocity = bird.lift;
+            jumpSound();
         }
 
         // Start game
