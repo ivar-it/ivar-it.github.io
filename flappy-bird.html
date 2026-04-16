@@ -613,10 +613,178 @@
             margin-top: 5px;
             opacity: 0.6;
         }
+
+        /* ─── Bird Customization Menu ──────────────────────────────────── */
+        .customize-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 107, 0, 0.2);
+            border: 2px solid #ff6b00;
+            border-radius: 50%;
+            color: #ff6b00;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 11;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 15px rgba(255, 107, 0, 0.3);
+        }
+
+        .customize-btn:hover {
+            background: rgba(255, 107, 0, 0.4);
+            box-shadow: 0 0 25px rgba(255, 107, 0, 0.6);
+            transform: scale(1.1);
+        }
+
+        .customize-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            backdrop-filter: blur(3px);
+        }
+
+        .customize-overlay.visible {
+            display: flex;
+        }
+
+        .customize-panel {
+            background: rgba(0, 0, 0, 0.95);
+            border: 3px solid #ff6b00;
+            border-radius: 10px;
+            padding: 30px;
+            color: #ff6b00;
+            max-width: 650px;
+            max-height: 85vh;
+            overflow-y: auto;
+            text-shadow: 0 0 10px rgba(255, 107, 0, 0.8);
+        }
+
+        .customize-panel h2 {
+            font-size: 28px;
+            margin: 0 0 20px 0;
+            border-bottom: 2px solid #ff6b00;
+            padding-bottom: 15px;
+            text-align: center;
+        }
+
+        .skins-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .skin-card {
+            position: relative;
+            background: rgba(255, 107, 0, 0.05);
+            border: 2px solid #ff8c00;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .skin-card:hover {
+            background: rgba(255, 107, 0, 0.15);
+            border-color: #ffaa00;
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(255, 107, 0, 0.4);
+        }
+
+        .skin-card.selected {
+            background: rgba(255, 107, 0, 0.3);
+            border-color: #ffff00;
+            box-shadow: 0 0 25px rgba(255, 255, 0, 0.6);
+        }
+
+        .skin-preview {
+            width: 80px;
+            height: 60px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #ff6b00;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .skin-name {
+            font-weight: bold;
+            font-size: 13px;
+            color: #ffaa00;
+        }
+
+        .skin-badge {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #ff6b00;
+            color: #000;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: bold;
+            text-shadow: none;
+        }
+
+        .skin-badge.locked {
+            background: #666;
+            color: #ccc;
+        }
+
+        .skin-badge.unlocked {
+            background: #00ff00;
+            color: #000;
+        }
+
+        .customize-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: #ff6b00;
+            font-size: 28px;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            transition: all 0.3s;
+        }
+
+        .customize-close:hover {
+            color: #ffaa00;
+            transform: scale(1.2);
+        }
+
+        .customize-hint {
+            font-size: 12px;
+            color: #ff8c00;
+            margin-top: 15px;
+            opacity: 0.7;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
     <div class="container" id="gameContainer">
+        <button class="customize-btn" id="customizeBtn" title="Customize bird" aria-label="Customize bird">⚙️</button>
         <button class="sound-toggle" id="soundToggle" title="Toggle sound" aria-label="Toggle sound">🔊</button>
         <div class="ui">
             <div class="score" id="scoreDisplay">Score: <span id="score">0</span></div>
@@ -720,6 +888,14 @@
                 <div class="stats-hint">Press ESC or click to close</div>
             </div>
         </div>
+        <div class="customize-overlay" id="customizeOverlay">
+            <div class="customize-panel">
+                <button class="customize-close" id="customizeCloseBtn">✕</button>
+                <h2>BIRD SKINS</h2>
+                <div class="skins-grid" id="skinsGrid"></div>
+                <div class="customize-hint">Select a skin to customize your bird | Press ESC to close</div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -805,6 +981,313 @@
             }
         };
 
+        // ─── Bird Skins System ─────────────────────────────────────────────
+        const birdSkins = {
+            classic: {
+                name: 'Classic',
+                unlocked: true,
+                draw: function() {
+                    // Original orange bird
+                    const bodyGrad = ctx.createRadialGradient(-3, -4, 2, 0, 0, bird.radius);
+                    bodyGrad.addColorStop(0, '#ffaa00');
+                    bodyGrad.addColorStop(0.5, '#ff6b00');
+                    bodyGrad.addColorStop(1, '#cc3300');
+                    ctx.fillStyle = bodyGrad;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.save();
+                    ctx.translate(-4, 4);
+                    ctx.rotate(bird.wingRotation);
+                    ctx.fillStyle = 'rgba(200, 60, 0, 0.7)';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 8, 5, -0.4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+
+                    ctx.fillStyle = '#ffcc00';
+                    ctx.beginPath();
+                    ctx.moveTo(bird.radius - 2, -2);
+                    ctx.lineTo(bird.radius + 7, 0);
+                    ctx.lineTo(bird.radius - 2, 3);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            },
+            void: {
+                name: 'Void',
+                unlocked: true,
+                draw: function() {
+                    // All black with purple glow
+                    let glowColor = 'rgba(128, 0, 255, ';
+                    const glowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, bird.radius * 1.8);
+                    glowGrad.addColorStop(0, glowColor + '0.5)');
+                    glowGrad.addColorStop(1, glowColor + '0)');
+                    ctx.fillStyle = glowGrad;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, bird.radius * 1.8, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#000000';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.save();
+                    ctx.translate(-4, 4);
+                    ctx.rotate(bird.wingRotation);
+                    ctx.fillStyle = 'rgba(80, 0, 160, 0.9)';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 8, 5, -0.4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+
+                    ctx.fillStyle = '#800080';
+                    ctx.beginPath();
+                    ctx.moveTo(bird.radius - 2, -2);
+                    ctx.lineTo(bird.radius + 7, 0);
+                    ctx.lineTo(bird.radius - 2, 3);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            },
+            inferno: {
+                name: 'Inferno',
+                unlocked: true,
+                draw: function() {
+                    // Red to yellow gradient
+                    const bodyGrad = ctx.createRadialGradient(-3, -4, 2, 0, 0, bird.radius);
+                    bodyGrad.addColorStop(0, '#ffff00');
+                    bodyGrad.addColorStop(0.5, '#ff4400');
+                    bodyGrad.addColorStop(1, '#cc0000');
+                    ctx.fillStyle = bodyGrad;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.save();
+                    ctx.translate(-4, 4);
+                    ctx.rotate(bird.wingRotation);
+                    ctx.fillStyle = 'rgba(255, 100, 0, 0.8)';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 8, 5, -0.4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+
+                    ctx.fillStyle = '#ffff00';
+                    ctx.beginPath();
+                    ctx.moveTo(bird.radius - 2, -2);
+                    ctx.lineTo(bird.radius + 7, 0);
+                    ctx.lineTo(bird.radius - 2, 3);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            },
+            ghost: {
+                name: 'Ghost',
+                unlocked: true,
+                draw: function() {
+                    // White with transparency
+                    const bodyGrad = ctx.createRadialGradient(-3, -4, 2, 0, 0, bird.radius);
+                    bodyGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+                    bodyGrad.addColorStop(0.5, 'rgba(200, 200, 200, 0.7)');
+                    bodyGrad.addColorStop(1, 'rgba(150, 150, 150, 0.5)');
+                    ctx.fillStyle = bodyGrad;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.save();
+                    ctx.translate(-4, 4);
+                    ctx.rotate(bird.wingRotation);
+                    ctx.fillStyle = 'rgba(180, 180, 180, 0.6)';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 8, 5, -0.4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+
+                    ctx.fillStyle = 'rgba(100, 100, 100, 0.8)';
+                    ctx.beginPath();
+                    ctx.moveTo(bird.radius - 2, -2);
+                    ctx.lineTo(bird.radius + 7, 0);
+                    ctx.lineTo(bird.radius - 2, 3);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            },
+            neon: {
+                name: 'Neon',
+                unlocked: true,
+                draw: function() {
+                    // Cyan/purple outline glow
+                    const glowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, bird.radius * 2);
+                    glowGrad.addColorStop(0, 'rgba(0, 255, 255, 0.6)');
+                    glowGrad.addColorStop(0.5, 'rgba(128, 0, 255, 0.3)');
+                    glowGrad.addColorStop(1, 'rgba(128, 0, 255, 0)');
+                    ctx.fillStyle = glowGrad;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, bird.radius * 2, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    ctx.fillStyle = 'rgba(0, 100, 100, 0.6)';
+                    ctx.fill();
+
+                    ctx.save();
+                    ctx.translate(-4, 4);
+                    ctx.rotate(bird.wingRotation);
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 8, 5, -0.4, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(bird.radius - 2, -2);
+                    ctx.lineTo(bird.radius + 7, 0);
+                    ctx.lineTo(bird.radius - 2, 3);
+                    ctx.closePath();
+                    ctx.stroke();
+                }
+            },
+            skeleton: {
+                name: 'Skeleton',
+                unlocked: true,
+                draw: function() {
+                    // White skull
+                    ctx.fillStyle = '#ffffcc';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Eye sockets
+                    ctx.fillStyle = '#000000';
+                    ctx.beginPath();
+                    ctx.arc(5, -5, 3.5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(10, -5, 3.5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Nose hole (triangle)
+                    ctx.beginPath();
+                    ctx.moveTo(7.5, -1);
+                    ctx.lineTo(5.5, 2);
+                    ctx.lineTo(9.5, 2);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Teeth
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 1;
+                    for (let i = 0; i < 5; i++) {
+                        ctx.beginPath();
+                        ctx.moveTo(5 + i * 3, 4);
+                        ctx.lineTo(5 + i * 3, 6);
+                        ctx.stroke();
+                    }
+
+                    ctx.fillStyle = '#ffffcc';
+                    ctx.beginPath();
+                    ctx.moveTo(bird.radius - 2, -2);
+                    ctx.lineTo(bird.radius + 7, 0);
+                    ctx.lineTo(bird.radius - 2, 3);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            },
+            metal: {
+                name: 'Metal',
+                unlocked: true,
+                draw: function() {
+                    // Gray/silver with shine
+                    const bodyGrad = ctx.createRadialGradient(-5, -6, 1, 0, 0, bird.radius);
+                    bodyGrad.addColorStop(0, '#e8e8e8');
+                    bodyGrad.addColorStop(0.4, '#c0c0c0');
+                    bodyGrad.addColorStop(1, '#808080');
+                    ctx.fillStyle = bodyGrad;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Shine reflection
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                    ctx.beginPath();
+                    ctx.arc(-4, -6, 4, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.save();
+                    ctx.translate(-4, 4);
+                    ctx.rotate(bird.wingRotation);
+                    ctx.fillStyle = 'rgba(160, 160, 160, 0.8)';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 8, 5, -0.4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+
+                    ctx.fillStyle = '#ffd700';
+                    ctx.beginPath();
+                    ctx.moveTo(bird.radius - 2, -2);
+                    ctx.lineTo(bird.radius + 7, 0);
+                    ctx.lineTo(bird.radius - 2, 3);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            },
+            cosmic: {
+                name: 'Cosmic',
+                unlocked: true,
+                draw: function() {
+                    // Starfield pattern
+                    const bodyGrad = ctx.createRadialGradient(-3, -4, 2, 0, 0, bird.radius);
+                    bodyGrad.addColorStop(0, '#0033ff');
+                    bodyGrad.addColorStop(0.5, '#000066');
+                    bodyGrad.addColorStop(1, '#000033');
+                    ctx.fillStyle = bodyGrad;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Draw stars
+                    ctx.fillStyle = '#ffff00';
+                    for (let i = 0; i < 8; i++) {
+                        const angle = (i / 8) * Math.PI * 2;
+                        const x = Math.cos(angle) * 7;
+                        const y = Math.sin(angle) * 7;
+                        ctx.beginPath();
+                        ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    ctx.save();
+                    ctx.translate(-4, 4);
+                    ctx.rotate(bird.wingRotation);
+                    ctx.fillStyle = 'rgba(0, 50, 150, 0.7)';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 8, 5, -0.4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+
+                    ctx.fillStyle = '#00ffff';
+                    ctx.beginPath();
+                    ctx.moveTo(bird.radius - 2, -2);
+                    ctx.lineTo(bird.radius + 7, 0);
+                    ctx.lineTo(bird.radius - 2, 3);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
+        };
+
         // Game objects
         const game = {
             score: 0,
@@ -821,7 +1304,8 @@
             },
             invulnerable: false,
             invulnerabilityTimer: 0,
-            soundEnabled: localStorage.getItem('flappyBirdSoundEnabled') !== 'false' ? true : false
+            soundEnabled: localStorage.getItem('flappyBirdSoundEnabled') !== 'false' ? true : false,
+            selectedSkin: localStorage.getItem('selectedBirdSkin') || 'classic'
         };
 
         const bird = {
@@ -852,7 +1336,7 @@
         let pipeCounter = 0;
         let pipeSpeed = 3;
         let pipeFrequency = 90;
-        const version = '0.4.2';
+        const version = '0.5.0';
 
         // ─── Death sequence state ──────────────────────────────────────────
         const deathSequence = {
@@ -1829,49 +2313,11 @@
                 ctx.globalAlpha = 1;
             }
 
-            // Main body (color shift for active power-ups)
-            let bodyColor1 = '#ffaa00';
-            let bodyColor2 = '#ff6b00';
-            let bodyColor3 = '#cc3300';
-            if (game.activePowerUps.shield) {
-                bodyColor1 = '#6db3ff';
-                bodyColor2 = '#4da6ff';
-                bodyColor3 = '#2d7fb8';
-            } else if (game.activePowerUps.doublepoints) {
-                bodyColor1 = '#ffdd00';
-                bodyColor2 = '#ffcc00';
-                bodyColor3 = '#ff9900';
-            }
+            // Draw the selected skin
+            const selectedSkin = birdSkins[game.selectedSkin] || birdSkins.classic;
+            selectedSkin.draw();
 
-            const bodyGrad = ctx.createRadialGradient(-3, -4, 2, 0, 0, bird.radius);
-            bodyGrad.addColorStop(0, bodyColor1);
-            bodyGrad.addColorStop(0.5, bodyColor2);
-            bodyGrad.addColorStop(1, bodyColor3);
-            ctx.fillStyle = bodyGrad;
-            ctx.beginPath();
-            ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Wing with flapping animation
-            ctx.save();
-            ctx.translate(-4, 4);
-            ctx.rotate(bird.wingRotation);
-            ctx.fillStyle = 'rgba(200, 60, 0, 0.7)';
-            ctx.beginPath();
-            ctx.ellipse(0, 0, 8, 5, -0.4, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-
-            // Beak (pointing right, the direction of travel)
-            ctx.fillStyle = '#ffcc00';
-            ctx.beginPath();
-            ctx.moveTo(bird.radius - 2, -2);
-            ctx.lineTo(bird.radius + 7, 0);
-            ctx.lineTo(bird.radius - 2, 3);
-            ctx.closePath();
-            ctx.fill();
-
-            // Eye with blink and width modulation
+            // Eye with blink and width modulation (applies to all skins)
             const eyeRadius = 4 * (0.6 + blinkAmount * 0.4);
             const eyeWidth = 4 * bird.eyeWidthMultiplier * (0.6 + blinkAmount * 0.4);
             ctx.fillStyle = '#000';
@@ -2680,6 +3126,110 @@
                         selectDifficulty(focused.dataset.difficulty);
                     }
                 }
+            }
+        });
+
+        // ─── Bird Customization Menu ──────────────────────────────────────
+        let customizeOverlayOpen = false;
+
+        function toggleCustomizeOverlay() {
+            customizeOverlayOpen = !customizeOverlayOpen;
+            const overlay = document.getElementById('customizeOverlay');
+            if (customizeOverlayOpen) {
+                overlay.classList.add('visible');
+                renderSkinsGrid();
+            } else {
+                overlay.classList.remove('visible');
+            }
+        }
+
+        function renderSkinsGrid() {
+            const skinsGrid = document.getElementById('skinsGrid');
+            skinsGrid.innerHTML = '';
+
+            Object.entries(birdSkins).forEach(([skinKey, skinData]) => {
+                const card = document.createElement('div');
+                card.className = 'skin-card';
+                if (game.selectedSkin === skinKey) {
+                    card.classList.add('selected');
+                }
+
+                const preview = document.createElement('canvas');
+                preview.className = 'skin-preview';
+                preview.width = 80;
+                preview.height = 60;
+
+                // Draw preview of the skin
+                const previewCtx = preview.getContext('2d');
+                previewCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                previewCtx.fillRect(0, 0, 80, 60);
+
+                previewCtx.save();
+                previewCtx.translate(40, 30);
+
+                // Mock bird state for preview
+                const prevBird = { ...bird, radius: 12, wingRotation: 0.2, velocity: 0 };
+                const origBird = bird;
+                Object.assign(bird, prevBird);
+
+                // Temporarily set skin for drawing
+                const tempSkin = game.selectedSkin;
+                game.selectedSkin = skinKey;
+
+                // Draw the bird preview
+                skinData.draw.call(null);
+
+                game.selectedSkin = tempSkin;
+                Object.assign(bird, origBird);
+                previewCtx.restore();
+
+                card.appendChild(preview);
+
+                const name = document.createElement('div');
+                name.className = 'skin-name';
+                name.textContent = skinData.name;
+                card.appendChild(name);
+
+                const badge = document.createElement('div');
+                badge.className = 'skin-badge unlocked';
+                badge.textContent = 'FREE';
+                card.appendChild(badge);
+
+                card.addEventListener('click', () => {
+                    selectBirdSkin(skinKey);
+                });
+
+                skinsGrid.appendChild(card);
+            });
+        }
+
+        function selectBirdSkin(skinKey) {
+            game.selectedSkin = skinKey;
+            localStorage.setItem('selectedBirdSkin', skinKey);
+            renderSkinsGrid();
+        }
+
+        document.getElementById('customizeBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleCustomizeOverlay();
+        });
+
+        document.getElementById('customizeCloseBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleCustomizeOverlay();
+        });
+
+        document.getElementById('customizeOverlay').addEventListener('click', (e) => {
+            if (e.target.id === 'customizeOverlay') {
+                toggleCustomizeOverlay();
+            }
+        });
+
+        // Close customize menu on ESC
+        const origKeydownListener = document.addEventListener('keydown', (e) => {
+            if (e.code === 'Escape' && customizeOverlayOpen) {
+                e.preventDefault();
+                toggleCustomizeOverlay();
             }
         });
 
