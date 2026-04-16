@@ -665,10 +665,7 @@
             });
 
             // Play level-up sound
-            playSound(600, 0.12);
-            setTimeout(() => playSound(800, 0.12), 100);
-            setTimeout(() => playSound(1000, 0.15), 200);
-            setTimeout(() => playSound(1200, 0.2), 320);
+            playAudioBuffer('levelUp');
 
             spawnConfetti(confCanvas);
             if (confettiAnimId) cancelAnimationFrame(confettiAnimId);
@@ -1337,8 +1334,7 @@
 
             if (game.streak % streakThreshold === 0) {
                 showComboPopup(game.streak);
-                playSound(600, 0.2);
-                setTimeout(() => playSound(700, 0.2), 100);
+                playAudioBuffer('powerUp');
             }
         }
 
