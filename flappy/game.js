@@ -595,7 +595,17 @@
             const pct = level >= MAX_LEVEL ? 100 : Math.min(100, (progressXP / rangeXP) * 100);
 
             document.getElementById('xpLevelLabel').textContent = 'Lv.' + level;
-            document.getElementById('xpBarFill').style.width = pct + '%';
+
+            // Update XP bar color to match level theme
+            const colors = LEVEL_COLOR_SCHEMES[level] || LEVEL_COLOR_SCHEMES[1];
+            const xpBarFill = document.getElementById('xpBarFill');
+            xpBarFill.style.width = pct + '%';
+            xpBarFill.style.boxShadow = `0 0 6px ${colors.accent}`;
+            xpBarFill.style.background = `linear-gradient(90deg, ${colors.pipe[0]}, ${colors.accent})`;
+
+            // Update label color
+            document.getElementById('xpLevelLabel').style.color = colors.accent;
+            document.getElementById('xpLevelLabel').style.textShadow = `0 0 8px ${colors.accent}`;
 
             if (level >= MAX_LEVEL) {
                 document.getElementById('xpProgressText').textContent = 'MAX LEVEL';
@@ -622,8 +632,23 @@
         let confettiParticles = [];
         let confettiAnimId = null;
 
+        function getConfettiColorsForLevel() {
+            const currentLevel = xpManager.currentLevel;
+
+            // Mix theme accent color with level-appropriate colors
+            if (currentLevel <= 5) {
+                return ['#ffcc00', '#ff6b00', '#ff4500', '#fff', '#ff8c00', '#ffff00'];
+            } else if (currentLevel <= 10) {
+                return ['#ff55aa', '#ff77cc', '#ee33aa', '#dd00dd', '#ff99dd', '#ff00ff'];
+            } else if (currentLevel <= 15) {
+                return ['#4488ff', '#22aaff', '#00ddff', '#00ffff', '#33bbff', '#0088ff'];
+            } else {
+                return ['#00ffff', '#bb66ff', '#ff00ff', '#ee77ff', '#cc88ff', '#dd99ff'];
+            }
+        }
+
         function spawnConfetti(canvas) {
-            const colors = ['#ffcc00', '#ff6b00', '#ff4500', '#fff', '#ff8c00', '#ffff00'];
+            const colors = getConfettiColorsForLevel();
             confettiParticles = [];
             for (let i = 0; i < 120; i++) {
                 confettiParticles.push({
@@ -689,6 +714,12 @@
             } else {
                 unlockEl.classList.remove('visible');
             }
+
+            // Apply level-based colors to popup
+            const colors = LEVEL_COLOR_SCHEMES[newLevel] || LEVEL_COLOR_SCHEMES[1];
+            popup.style.borderColor = colors.accent;
+            popup.style.color = colors.accent;
+            levelText.style.textShadow = `0 0 20px ${colors.accent}`;
 
             overlay.classList.add('active');
             requestAnimationFrame(() => {
@@ -917,17 +948,30 @@
         // ─── Particle system ───────────────────────────────────────────────
         const particles = [];
 
+        function getPipeParticleColorsForLevel() {
+            const currentLevel = xpManager.currentLevel;
+            if (currentLevel <= 5) {
+                return ['#ff6b00', '#ff4500', '#ff8c00', '#ff2200', '#ffaa00'];
+            } else if (currentLevel <= 10) {
+                return ['#ff55aa', '#ff33aa', '#ee22aa', '#ff00ff', '#dd00ff'];
+            } else if (currentLevel <= 15) {
+                return ['#4488ff', '#2266ff', '#00aaff', '#0088ff', '#0066ff'];
+            } else {
+                return ['#00ffff', '#88ddff', '#bb66ff', '#dd99ff', '#ff00ff'];
+            }
+        }
+
         function spawnPipeParticles(x, y) {
-            const count = 6 + Math.floor(Math.random() * 3); // 6-8
+            const count = 6 + Math.floor(Math.random() * 3);
+            const colors = getPipeParticleColorsForLevel();
             for (let i = 0; i < count; i++) {
                 const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.8;
                 const speed = 2.5 + Math.random() * 3;
-                const colors = ['#ff6b00', '#ff4500', '#ff8c00', '#ff2200', '#ffaa00'];
                 particles.push({
                     x,
                     y,
                     vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed - 1, // slight upward bias
+                    vy: Math.sin(angle) * speed - 1,
                     life: 1.0,
                     decay: 0.025 + Math.random() * 0.02,
                     radius: 3 + Math.random() * 4,
@@ -938,11 +982,10 @@
 
 
         function spawnDeathTrailParticles(x, y) {
-            // Dramatic fall trail during death sequence
             const count = 12 + Math.floor(Math.random() * 8);
-            const colors = ['#ff2200', '#ff4500', '#ff6b00', '#ff8c00', '#ffaa00', '#ffcc00'];
+            const colors = getPipeParticleColorsForLevel();
             for (let i = 0; i < count; i++) {
-                const angle = Math.PI * 0.5 + (Math.random() - 0.5) * 0.8; // mostly downward
+                const angle = Math.PI * 0.5 + (Math.random() - 0.5) * 0.8;
                 const speed = 1 + Math.random() * 2.5;
                 particles.push({
                     x: x + (Math.random() - 0.5) * 15,
@@ -959,9 +1002,19 @@
         }
 
         function spawnPipeCrackParticles(x, y) {
-            // Shattered pipe pieces on collision
             const count = 16 + Math.floor(Math.random() * 12);
-            const colors = ['#550000', '#8b0000', '#aa1100', '#ff4500', '#ff6b00'];
+            const currentLevel = xpManager.currentLevel;
+            let colors;
+            if (currentLevel <= 5) {
+                colors = ['#550000', '#8b0000', '#aa1100', '#ff4500', '#ff6b00'];
+            } else if (currentLevel <= 10) {
+                colors = ['#771155', '#bb2288', '#ee33aa', '#ff55cc', '#ff00ff'];
+            } else if (currentLevel <= 15) {
+                colors = ['#0a3366', '#2a55bb', '#0088ff', '#00aaff', '#0088dd'];
+            } else {
+                colors = ['#0099ff', '#00ddff', '#6688ff', '#bb66ff', '#ff00ff'];
+            }
+
             for (let i = 0; i < count; i++) {
                 const angle = Math.PI * 2 * Math.random();
                 const speed = 2 + Math.random() * 6;
@@ -1556,9 +1609,22 @@
             }
         }
 
+        function getExplosionColorsForLevel() {
+            const currentLevel = xpManager.currentLevel;
+            if (currentLevel <= 5) {
+                return ['#ff4500', '#ff6b00', '#ff8c00', '#ffaa00', '#ff2200'];
+            } else if (currentLevel <= 10) {
+                return ['#ff55aa', '#ff77cc', '#ee33aa', '#dd00dd', '#ff00ff'];
+            } else if (currentLevel <= 15) {
+                return ['#4488ff', '#22aaff', '#00ddff', '#00ffff', '#0088ff'];
+            } else {
+                return ['#00ffff', '#bb66ff', '#ff00ff', '#dd99ff', '#cc88ff'];
+            }
+        }
+
         function spawnExplosionParticles() {
             const count = 24;
-            const colors = ['#ff4500', '#ff6b00', '#ff8c00', '#ffaa00', '#ff2200'];
+            const colors = getExplosionColorsForLevel();
             for (let i = 0; i < count; i++) {
                 const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
                 const speed = 3 + Math.random() * 5;
