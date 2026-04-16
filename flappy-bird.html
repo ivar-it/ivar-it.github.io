@@ -447,6 +447,12 @@
             <h1>&#9760;&#65039; GAME OVER &#9760;&#65039;</h1>
             <p>Final Score: <span id="finalScore">0</span></p>
             <p>High Score: <span id="highScore">0</span></p>
+            <div id="runStatsContainer" style="margin: 15px 0; font-size: 16px; opacity: 0.9;">
+                <p id="streakMessage" style="margin: 5px 0;"></p>
+                <p id="powerUpMessage" style="margin: 5px 0;"></p>
+                <p id="personalBestMessage" style="margin: 5px 0; color: #ffaa00;"></p>
+                <p id="pipeMessage" style="margin: 5px 0;"></p>
+            </div>
             <button onclick="location.reload()">RESTART</button>
         </div>
         <div class="start-screen" id="startScreen">
@@ -599,8 +605,162 @@
         let pipeCounter = 0;
         let pipeSpeed = 3;
         let pipeFrequency = 90;
-        const version = '0.4.0';
+        const version = '0.4.1';
         let scrollOffset = 0;
+
+        // ─── Stats tracking system ─────────────────────────────────────────
+        const statsManager = {
+            // Initialize stats from localStorage
+            stats: {
+                allTimeHigh: localStorage.getItem('stats.allTimeHigh') || 0,
+                bestStreak: localStorage.getItem('stats.bestStreak') || 0,
+                gamesPlayed: localStorage.getItem('stats.gamesPlayed') || 0,
+                totalPipes: localStorage.getItem('stats.totalPipes') || 0,
+                powerUpCounts: JSON.parse(localStorage.getItem('stats.powerUpCounts') || '{"shield":0,"powbomb":0,"doublepoints":0}'),
+                runs: JSON.parse(localStorage.getItem('stats.runs') || '[]')
+            },
+
+            // Per-run tracking
+            currentRun: {
+                bestStreak: 0,
+                powerUpsCollected: {
+                    shield: 0,
+                    powbomb: 0,
+                    doublepoints: 0
+                },
+                totalPipesCleared: 0,
+                difficulty: 'normal',
+                timestamp: null,
+                finalScore: 0
+            },
+
+            recordPowerUpCollection(type) {
+                this.currentRun.powerUpsCollected[type]++;
+                this.stats.powerUpCounts[type]++;
+                this.savePowerUpCounts();
+            },
+
+            recordPipeCleared() {
+                this.currentRun.totalPipesCleared++;
+                this.stats.totalPipes++;
+                this.saveTotalPipes();
+            },
+
+            recordStreakUpdate(streak) {
+                if (streak > this.currentRun.bestStreak) {
+                    this.currentRun.bestStreak = streak;
+                }
+                if (streak > this.stats.bestStreak) {
+                    this.stats.bestStreak = streak;
+                    this.saveBestStreak();
+                }
+            },
+
+            startNewRun(difficulty) {
+                this.currentRun = {
+                    bestStreak: 0,
+                    powerUpsCollected: {
+                        shield: 0,
+                        powbomb: 0,
+                        doublepoints: 0
+                    },
+                    totalPipesCleared: 0,
+                    difficulty: difficulty,
+                    timestamp: new Date().toISOString(),
+                    finalScore: 0
+                };
+            },
+
+            endRun(finalScore) {
+                this.currentRun.finalScore = finalScore;
+                this.stats.gamesPlayed++;
+
+                // Update all-time high
+                if (finalScore > this.stats.allTimeHigh) {
+                    this.stats.allTimeHigh = finalScore;
+                    this.saveAllTimeHigh();
+                }
+
+                // Save run to history (keep last 5)
+                this.stats.runs.unshift({
+                    score: finalScore,
+                    bestStreak: this.currentRun.bestStreak,
+                    pipesCleared: this.currentRun.totalPipesCleared,
+                    powerUps: {...this.currentRun.powerUpsCollected},
+                    difficulty: this.currentRun.difficulty,
+                    timestamp: this.currentRun.timestamp
+                });
+                if (this.stats.runs.length > 5) {
+                    this.stats.runs = this.stats.runs.slice(0, 5);
+                }
+
+                this.saveGamesPlayed();
+                this.saveRuns();
+            },
+
+            // Persistence methods
+            saveAllTimeHigh() {
+                localStorage.setItem('stats.allTimeHigh', this.stats.allTimeHigh);
+            },
+            saveBestStreak() {
+                localStorage.setItem('stats.bestStreak', this.stats.bestStreak);
+            },
+            saveGamesPlayed() {
+                localStorage.setItem('stats.gamesPlayed', this.stats.gamesPlayed);
+            },
+            saveTotalPipes() {
+                localStorage.setItem('stats.totalPipes', this.stats.totalPipes);
+            },
+            savePowerUpCounts() {
+                localStorage.setItem('stats.powerUpCounts', JSON.stringify(this.stats.powerUpCounts));
+            },
+            saveRuns() {
+                localStorage.setItem('stats.runs', JSON.stringify(this.stats.runs));
+            },
+
+            // Format display methods
+            getMostUsedPowerUp() {
+                let mostUsed = 'shield';
+                let maxCount = this.stats.powerUpCounts.shield;
+                if (this.stats.powerUpCounts.powbomb > maxCount) {
+                    mostUsed = 'powbomb';
+                    maxCount = this.stats.powerUpCounts.powbomb;
+                }
+                if (this.stats.powerUpCounts.doublepoints > maxCount) {
+                    mostUsed = 'doublepoints';
+                    maxCount = this.stats.powerUpCounts.doublepoints;
+                }
+                return { type: mostUsed, count: maxCount };
+            },
+
+            getStreakMessage() {
+                const streak = this.currentRun.bestStreak;
+                if (streak > 0) {
+                    return `Best streak this run: ${streak} pipes`;
+                }
+                return '';
+            },
+
+            getPowerUpMessage() {
+                const total = this.currentRun.powerUpsCollected.shield +
+                             this.currentRun.powerUpsCollected.powbomb +
+                             this.currentRun.powerUpsCollected.doublepoints;
+                if (total > 0) {
+                    return `Nice! You collected ${total} power-up${total !== 1 ? 's' : ''}`;
+                }
+                return '';
+            },
+
+            getPersonalBestMessage() {
+                if (this.currentRun.finalScore > this.stats.allTimeHigh * 0.95 && this.currentRun.finalScore !== this.stats.allTimeHigh) {
+                    return '⭐ Personal best incoming!';
+                }
+                if (this.currentRun.finalScore === this.stats.allTimeHigh && this.stats.gamesPlayed > 1) {
+                    return '🔥 Matched your personal best!';
+                }
+                return '';
+            }
+        };
 
         // ─── Particle system ───────────────────────────────────────────────
         const particles = [];
@@ -917,6 +1077,11 @@
                 localStorage.setItem('flappyBirdMaxStreak', game.maxStreak);
             }
 
+            // Track streak in stats
+            statsManager.recordStreakUpdate(game.streak);
+            // Track pipe cleared in stats
+            statsManager.recordPipeCleared();
+
             updateStreakDisplay();
 
             if (game.streak % streakThreshold === 0) {
@@ -952,6 +1117,9 @@
                 startTime: now,
                 duration: powerUpTypes[type].duration
             };
+
+            // Record power-up collection in stats
+            statsManager.recordPowerUpCollection(type);
 
             if (type === 'shield') {
                 // Shield shows visual indicator on bird
@@ -1635,6 +1803,9 @@
 
             gameOverSound();
 
+            // Record run statistics
+            statsManager.endRun(game.score);
+
             const screen = document.getElementById('gameOverScreen');
             screen.style.display = 'block';
             // Trigger CSS fade-in on next frame
@@ -1650,7 +1821,24 @@
             }
             document.getElementById('highScore').textContent = game.highScore;
 
+            // Display run-specific stats
+            displayRunStats();
+
             playStartMusic();
+        }
+
+        // ─── Display run stats on game over screen ─────────────────────────
+        function displayRunStats() {
+            const streakMsg = statsManager.getStreakMessage();
+            const powerUpMsg = statsManager.getPowerUpMessage();
+            const personalBestMsg = statsManager.getPersonalBestMessage();
+            const pipeMsg = statsManager.currentRun.totalPipesCleared > 0 ?
+                `Pipes cleared: ${statsManager.currentRun.totalPipesCleared}` : '';
+
+            document.getElementById('streakMessage').textContent = streakMsg;
+            document.getElementById('powerUpMessage').textContent = powerUpMsg;
+            document.getElementById('personalBestMessage').textContent = personalBestMsg;
+            document.getElementById('pipeMessage').textContent = pipeMsg;
         }
 
         // ─── Difficulty selection ──────────────────────────────────────────
@@ -1666,6 +1854,9 @@
             basePipeSpeed = settings.pipeSpeed;
             pipeGap = settings.pipeGap;
             pipeFrequency = settings.pipeFrequency;
+
+            // Start new run tracking
+            statsManager.startNewRun(difficulty);
 
             // Hide difficulty selector and start the game immediately
             document.getElementById('difficultySelector').style.display = 'none';
