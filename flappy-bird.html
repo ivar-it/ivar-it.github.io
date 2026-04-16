@@ -485,7 +485,7 @@
         let pipeCounter = 0;
         let pipeSpeed = 3;
         let pipeFrequency = 90;
-        const version = '0.3.0';
+        const version = '0.3.1';
         let scrollOffset = 0;
 
         // ─── Particle system ───────────────────────────────────────────────
@@ -1059,9 +1059,10 @@
             pipeGap = settings.pipeGap;
             pipeFrequency = settings.pipeFrequency;
 
-            // Hide difficulty selector and show start screen
+            // Hide difficulty selector and start the game immediately
             document.getElementById('difficultySelector').style.display = 'none';
-            document.getElementById('startScreen').style.display = 'flex';
+            stopStartMusic();
+            game.started = true;
 
             // Highlight selected difficulty
             document.querySelectorAll('.difficulty-btn').forEach(btn => {
@@ -1085,17 +1086,16 @@
         function fly(e) {
             e.preventDefault();
 
-            if (!game.started) {
-                stopStartMusic();
-                game.started = true;
-                document.getElementById('startScreen').style.display = 'none';
-            } else if (game.gameOver) {
+            if (game.gameOver) {
                 location.reload();
+                return;
             }
 
-            bird.velocity = bird.lift;
-            jumpSound();
-            spawnJumpRing();
+            if (game.started) {
+                bird.velocity = bird.lift;
+                jumpSound();
+                spawnJumpRing();
+            }
         }
 
         // ─── Boot ──────────────────────────────────────────────────────────
