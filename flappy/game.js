@@ -659,6 +659,15 @@
             return xpManager.getLevelForXP(previewXP);
         }
 
+        // Get difficulty zone name based on level
+        function getDifficultyZone(level) {
+            if (level <= 2) return 'BEGINNER';
+            if (level <= 5) return 'NOVICE';
+            if (level <= 10) return 'INTERMEDIATE';
+            if (level <= 15) return 'EXPERT';
+            return 'APOCALYPSE';
+        }
+
         function getConfettiColorsForLevel() {
             const currentLevel = getEffectiveLevel();
 
@@ -1432,6 +1441,22 @@
 
         function showComboPopup(multiplier) {
             const message = streakMessages[Math.min(streakMessages.length - 1, Math.floor(multiplier / 2))];
+            popupManager.enqueue('streak', message, 1500);
+        }
+
+        function showComboPipesMilestone(pipeCount) {
+            let message = '';
+            if (pipeCount === 5) {
+                message = '🔥 5 PIPE COMBO!';
+            } else if (pipeCount === 10) {
+                message = '⚡ 10 PIPE DOMINATION!';
+            } else if (pipeCount === 15) {
+                message = '💥 15 PIPE RAMPAGE!';
+            } else if (pipeCount >= 20) {
+                message = `🌟 ${pipeCount} PIPE MADNESS!`;
+            } else {
+                return; // Don't show for other numbers
+            }
             popupManager.enqueue('streak', message, 1500);
         }
 
@@ -2268,6 +2293,11 @@
                         }
                     }
 
+                    // Show milestone popups at 5, 10, 15, 20+ pipes
+                    if ([5, 10, 15, 20, 25].includes(game.consecutivePipes)) {
+                        showComboPipesMilestone(game.consecutivePipes);
+                    }
+
                     if (game.score % 10 === 0) showMotivation();
                 }
 
@@ -2424,13 +2454,14 @@
             ctx.font = '14px Arial';
             ctx.fillText('v' + version, 10, 25);
 
-            // Draw level difficulty indicator (speed multiplier)
+            // Draw level difficulty indicator (speed multiplier + zone)
             if (game.started && !game.gameOver) {
                 const currentLevel = getEffectiveLevel();
                 const speedMultiplier = (1 + (currentLevel - 1) * 0.015).toFixed(2);
+                const zone = getDifficultyZone(currentLevel);
                 ctx.fillStyle = 'rgba(255, 107, 0, 0.6)';
                 ctx.font = '12px Arial';
-                ctx.fillText(`Lv${currentLevel} x${speedMultiplier}`, 10, 40);
+                ctx.fillText(`${zone} | Lv${currentLevel} x${speedMultiplier}`, 10, 40);
             }
 
             ctx.restore();
