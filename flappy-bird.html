@@ -202,7 +202,7 @@
         const pipeGap = 210;
         const pipeWidth = 50;
         let pipeCounter = 0;
-        const version = '1.4';
+        const version = '1.5';
         let scrollOffset = 0;
 
         // Audio context for sound effects
@@ -235,42 +235,66 @@
         }
 
         let musicPlaying = false;
+        let musicTimeoutId = null;
+
+        function playMelodySequence() {
+            // 10-second apocalyptic melody
+            const melody = [
+                { freq: 220, duration: 0.4 },
+                { freq: 220, duration: 0.4 },
+                { freq: 275, duration: 0.4 },
+                { freq: 330, duration: 0.4 },
+                { freq: 220, duration: 0.4 },
+                { freq: 165, duration: 0.8 },
+                { freq: 220, duration: 0.4 },
+                { freq: 275, duration: 0.4 },
+                { freq: 330, duration: 0.4 },
+                { freq: 275, duration: 0.4 },
+                { freq: 220, duration: 0.8 },
+                { freq: 330, duration: 0.4 },
+                { freq: 330, duration: 0.4 },
+                { freq: 275, duration: 0.4 },
+                { freq: 220, duration: 0.4 },
+                { freq: 275, duration: 0.4 },
+                { freq: 330, duration: 0.8 },
+                { freq: 220, duration: 0.4 },
+                { freq: 165, duration: 0.4 },
+                { freq: 165, duration: 1.0 },
+            ];
+
+            if (!musicPlaying) return;
+
+            let delay = 0;
+            melody.forEach(note => {
+                if (musicPlaying) {
+                    const timeoutId = setTimeout(() => {
+                        if (musicPlaying) {
+                            playSound(note.freq, note.duration * 0.8, 'sawtooth');
+                        }
+                    }, delay * 1000);
+                }
+                delay += note.duration + 0.05;
+            });
+
+            // Loop after 10 seconds
+            musicTimeoutId = setTimeout(() => {
+                if (musicPlaying) {
+                    playMelodySequence();
+                }
+            }, 10000);
+        }
 
         function playStartMusic() {
             if (musicPlaying) return;
             musicPlaying = true;
-
-            const melody = [
-                { freq: 330, duration: 0.3 },   // E
-                { freq: 330, duration: 0.3 },   // E
-                { freq: 330, duration: 0.3 },   // E
-                { freq: 220, duration: 0.2 },   // A
-                { freq: 330, duration: 0.3 },   // E
-                { freq: 440, duration: 0.5 },   // A
-                { freq: 220, duration: 0.3 },   // A
-                { freq: 165, duration: 0.4 },   // E low
-                { freq: 330, duration: 0.3 },   // E
-                { freq: 220, duration: 0.2 },   // A
-            ];
-
-            let delay = 0;
-            melody.forEach(note => {
-                setTimeout(() => {
-                    if (musicPlaying) {
-                        playSound(note.freq, note.duration, 'sawtooth');
-                    }
-                }, delay * 1000);
-                delay += note.duration + 0.05;
-            });
-
-            // Loop the music every 3 seconds
-            setTimeout(() => {
-                if (musicPlaying) playStartMusic();
-            }, 3500);
+            playMelodySequence();
         }
 
         function stopStartMusic() {
             musicPlaying = false;
+            if (musicTimeoutId) {
+                clearTimeout(musicTimeoutId);
+            }
         }
 
         // Draw bird
@@ -444,6 +468,9 @@
                 localStorage.setItem('flappyBirdHighScore', game.highScore);
             }
             document.getElementById('highScore').textContent = game.highScore;
+
+            // Play music on death screen
+            playStartMusic();
         }
 
         // Controls - tap/click to fly
@@ -454,18 +481,31 @@
             e.preventDefault();
 
             if (!game.started) {
+                // Starting game - stop menu music
+                stopStartMusic();
                 game.started = true;
                 document.getElementById('startScreen').style.display = 'none';
-                stopStartMusic();
+            } else if (game.gameOver) {
+                // Restart from game over screen - just reload
+                location.reload();
             }
 
             bird.velocity = bird.lift;
             jumpSound();
         }
 
+        // Start menu music on first interaction
+        function initializeAudio() {
+            if (!musicPlaying) {
+                playStartMusic();
+            }
+        }
+        document.addEventListener('click', initializeAudio, { once: true });
+        document.addEventListener('touchstart', initializeAudio, { once: true });
+
         // Start game
         gameLoop();
-        playStartMusic();
+        // Music starts on first user interaction
         document.getElementById('highScore').textContent = game.highScore;
     </script>
 </body>
