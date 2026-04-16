@@ -46,10 +46,23 @@
             font-weight: bold;
             text-shadow: 0 0 10px rgba(255, 107, 0, 0.8);
             z-index: 10;
+            pointer-events: none;
         }
 
         .score {
             text-align: center;
+            transition: transform 0.1s ease-out;
+        }
+
+        .score.flash {
+            animation: scoreFlash 0.4s ease-out;
+        }
+
+        @keyframes scoreFlash {
+            0%   { transform: scale(1);    color: #ff6b00; text-shadow: 0 0 10px rgba(255,107,0,0.8); }
+            30%  { transform: scale(1.5);  color: #ffffff; text-shadow: 0 0 20px rgba(255,200,0,1), 0 0 40px rgba(255,107,0,0.9); }
+            60%  { transform: scale(1.2);  color: #ffcc00; text-shadow: 0 0 15px rgba(255,200,0,0.9); }
+            100% { transform: scale(1);    color: #ff6b00; text-shadow: 0 0 10px rgba(255,107,0,0.8); }
         }
 
         .game-over {
@@ -66,6 +79,12 @@
             z-index: 20;
             display: none;
             border: 3px solid #ff6b00;
+            opacity: 0;
+            transition: opacity 0.5s ease-in;
+        }
+
+        .game-over.visible {
+            opacity: 1;
         }
 
         .game-over h1 {
@@ -200,13 +219,13 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container" id="gameContainer">
         <div class="ui">
-            <div class="score">Score: <span id="score">0</span></div>
+            <div class="score" id="scoreDisplay">Score: <span id="score">0</span></div>
         </div>
         <canvas id="gameCanvas"></canvas>
         <div class="game-over" id="gameOverScreen">
-            <h1>☠️ GAME OVER ☠️</h1>
+            <h1>&#9760;&#65039; GAME OVER &#9760;&#65039;</h1>
             <p>Final Score: <span id="finalScore">0</span></p>
             <p>High Score: <span id="highScore">0</span></p>
             <button onclick="location.reload()">RESTART</button>
@@ -214,15 +233,16 @@
         <div class="start-screen" id="startScreen">
             <h1>FLAPPY BIRD</h1>
             <p>APOCALYPSE</p>
-            <div class="hint">↑ TAP or CLICK to START ↑</div>
+            <div class="hint">&#8593; TAP or CLICK to START &#8593;</div>
         </div>
         <div class="motivation-popup" id="motivationPopup"></div>
-        <div class="instructions">TAP or CLICK to fly • Avoid pipes</div>
+        <div class="instructions">TAP or CLICK to fly &bull; Avoid pipes</div>
     </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const gameContainer = document.getElementById('gameContainer');
 
         // Responsive canvas
         function resizeCanvas() {
@@ -247,17 +267,126 @@
             velocity: 0,
             gravity: 0.35,
             lift: -5,
-            color: '#ff6b00'
+            color: '#ff6b00',
+            rotation: 0      // radians; 0 = flat, positive = nose-down
         };
 
         const pipes = [];
         const pipeGap = 210;
         const pipeWidth = 50;
         let pipeCounter = 0;
-        const version = '0.1.9';
+        const version = '0.2.0';
         let scrollOffset = 0;
 
-        // Audio context for sound effects
+        // ─── Particle system ───────────────────────────────────────────────
+        const particles = [];
+
+        function spawnPipeParticles(x, y) {
+            const count = 6 + Math.floor(Math.random() * 3); // 6-8
+            for (let i = 0; i < count; i++) {
+                const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.8;
+                const speed = 2.5 + Math.random() * 3;
+                const colors = ['#ff6b00', '#ff4500', '#ff8c00', '#ff2200', '#ffaa00'];
+                particles.push({
+                    x,
+                    y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 1, // slight upward bias
+                    life: 1.0,
+                    decay: 0.025 + Math.random() * 0.02,
+                    radius: 3 + Math.random() * 4,
+                    color: colors[Math.floor(Math.random() * colors.length)]
+                });
+            }
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.12; // gentle gravity
+                p.life -= p.decay;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+        }
+
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, p.life);
+                ctx.fillStyle = p.color;
+                ctx.shadowColor = p.color;
+                ctx.shadowBlur = 6;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius * p.life, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+        }
+
+        // ─── Jump ring / visual feedback ───────────────────────────────────
+        const jumpRings = [];
+
+        function spawnJumpRing() {
+            jumpRings.push({
+                x: bird.x,
+                y: bird.y,
+                radius: bird.radius,
+                life: 1.0
+            });
+        }
+
+        function updateJumpRings() {
+            for (let i = jumpRings.length - 1; i >= 0; i--) {
+                const r = jumpRings[i];
+                r.radius += 2.5;
+                r.life -= 0.07;
+                if (r.life <= 0) jumpRings.splice(i, 1);
+            }
+        }
+
+        function drawJumpRings() {
+            jumpRings.forEach(r => {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, r.life * 0.7);
+                ctx.strokeStyle = '#ff8c00';
+                ctx.lineWidth = 2;
+                ctx.shadowColor = '#ff6b00';
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            });
+        }
+
+        // ─── Screen shake ──────────────────────────────────────────────────
+        const shake = {
+            intensity: 0,
+            duration: 0,
+            offsetX: 0,
+            offsetY: 0
+        };
+
+        function triggerShake(intensity = 8, duration = 18) {
+            shake.intensity = intensity;
+            shake.duration = duration;
+        }
+
+        function updateShake() {
+            if (shake.duration > 0) {
+                shake.offsetX = (Math.random() - 0.5) * shake.intensity;
+                shake.offsetY = (Math.random() - 0.5) * shake.intensity;
+                shake.duration--;
+                shake.intensity *= 0.92; // dampen
+            } else {
+                shake.offsetX = 0;
+                shake.offsetY = 0;
+            }
+        }
+
+        // ─── Audio ────────────────────────────────────────────────────────
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
         function playSound(freq, duration, type = 'sine') {
@@ -290,25 +419,23 @@
         let musicTimeoutId = null;
 
         function playMelodySequence() {
-            // Dark Tetris-style apocalyptic melody (simplified)
             const melody = [
-                { freq: 110, duration: 0.35 },   // E low
-                { freq: 130, duration: 0.35 },   // C#
-                { freq: 110, duration: 0.35 },   // E low
-                { freq: 130, duration: 0.35 },   // C#
-                { freq: 110, duration: 0.7 },    // E low held
-                { freq: 165, duration: 0.35 },   // E
-                { freq: 220, duration: 0.35 },   // A
-                { freq: 246, duration: 0.7 },    // B
-
-                { freq: 196, duration: 0.35 },   // G
-                { freq: 165, duration: 0.35 },   // E
-                { freq: 130, duration: 0.35 },   // C#
-                { freq: 98, duration: 0.7 },     // B low
-                { freq: 130, duration: 0.35 },   // C#
-                { freq: 165, duration: 0.35 },   // E
-                { freq: 196, duration: 0.35 },   // G
-                { freq: 220, duration: 0.7 },    // A
+                { freq: 110, duration: 0.35 },
+                { freq: 130, duration: 0.35 },
+                { freq: 110, duration: 0.35 },
+                { freq: 130, duration: 0.35 },
+                { freq: 110, duration: 0.7 },
+                { freq: 165, duration: 0.35 },
+                { freq: 220, duration: 0.35 },
+                { freq: 246, duration: 0.7 },
+                { freq: 196, duration: 0.35 },
+                { freq: 165, duration: 0.35 },
+                { freq: 130, duration: 0.35 },
+                { freq: 98,  duration: 0.7 },
+                { freq: 130, duration: 0.35 },
+                { freq: 165, duration: 0.35 },
+                { freq: 196, duration: 0.35 },
+                { freq: 220, duration: 0.7 },
             ];
 
             if (!musicPlaying) return;
@@ -316,52 +443,42 @@
             let delay = 0;
             melody.forEach(note => {
                 if (musicPlaying) {
-                    const timeoutId = setTimeout(() => {
-                        if (musicPlaying) {
-                            playSound(note.freq, note.duration * 0.8, 'sawtooth');
-                        }
+                    setTimeout(() => {
+                        if (musicPlaying) playSound(note.freq, note.duration * 0.8, 'sawtooth');
                     }, delay * 1000);
                 }
                 delay += note.duration + 0.05;
             });
 
-            // Loop after melody completes (~8.5 seconds)
             musicTimeoutId = setTimeout(() => {
-                if (musicPlaying) {
-                    playMelodySequence();
-                }
+                if (musicPlaying) playMelodySequence();
             }, 8500);
         }
 
         function playStartMusic() {
             if (musicPlaying) return;
             musicPlaying = true;
-            // Resume audio context (required in modern browsers)
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
             playMelodySequence();
         }
 
         function stopStartMusic() {
             musicPlaying = false;
-            if (musicTimeoutId) {
-                clearTimeout(musicTimeoutId);
-            }
+            if (musicTimeoutId) clearTimeout(musicTimeoutId);
         }
 
-        // Motivational messages for every 10th pipe
+        // ─── Motivational messages ─────────────────────────────────────────
         const motivationalMessages = [
-            '🔥 INSANE! 🔥',
-            '☠️ UNSTOPPABLE ☠️',
-            '💀 LEGEND! 💀',
-            '🌪️ APOCALYPTIC! 🌪️',
-            '⚡ BEAST MODE ⚡',
-            '🔥 DOMINATING! 🔥',
-            '💥 DESTRUCTIVE! 💥',
-            '👑 SURVIVOR 👑',
-            '🎯 FLAWLESS! 🎯',
-            '🌪️ ON FIRE! 🌪️'
+            '\uD83D\uDD25 INSANE! \uD83D\uDD25',
+            '\u2620\uFE0F UNSTOPPABLE \u2620\uFE0F',
+            '\uD83D\uDC80 LEGEND! \uD83D\uDC80',
+            '\uD83C\uDF2A\uFE0F APOCALYPTIC! \uD83C\uDF2A\uFE0F',
+            '\u26A1 BEAST MODE \u26A1',
+            '\uD83D\uDD25 DOMINATING! \uD83D\uDD25',
+            '\uD83D\uDCA5 DESTRUCTIVE! \uD83D\uDCA5',
+            '\uD83D\uDC51 SURVIVOR \uD83D\uDC51',
+            '\uD83C\uDFAF FLAWLESS! \uD83C\uDFAF',
+            '\uD83C\uDF2A\uFE0F ON FIRE! \uD83C\uDF2A\uFE0F'
         ];
 
         function showMotivation() {
@@ -373,62 +490,146 @@
 
             setTimeout(() => {
                 popup.classList.add('disappear');
-                setTimeout(() => {
-                    popup.style.display = 'none';
-                }, 300);
+                setTimeout(() => { popup.style.display = 'none'; }, 300);
             }, 1800);
         }
 
-        // Draw bird
+        // ─── Draw bird (with rotation) ─────────────────────────────────────
         function drawBird() {
-            ctx.fillStyle = bird.color;
+            // Target rotation: clamp velocity-based tilt between -30deg and +70deg
+            const targetRotation = Math.max(-0.52, Math.min(1.22, bird.velocity * 0.065));
+            // Smooth interpolation
+            bird.rotation += (targetRotation - bird.rotation) * 0.18;
+
+            ctx.save();
+            ctx.translate(bird.x, bird.y);
+            ctx.rotate(bird.rotation);
+
+            // Body glow
+            const glowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, bird.radius * 1.8);
+            glowGrad.addColorStop(0, 'rgba(255, 140, 0, 0.35)');
+            glowGrad.addColorStop(1, 'rgba(255, 107, 0, 0)');
+            ctx.fillStyle = glowGrad;
             ctx.beginPath();
-            ctx.arc(bird.x, bird.y, bird.radius, 0, Math.PI * 2);
+            ctx.arc(0, 0, bird.radius * 1.8, 0, Math.PI * 2);
             ctx.fill();
 
-            // Bird eye
+            // Main body
+            const bodyGrad = ctx.createRadialGradient(-3, -4, 2, 0, 0, bird.radius);
+            bodyGrad.addColorStop(0, '#ffaa00');
+            bodyGrad.addColorStop(0.5, '#ff6b00');
+            bodyGrad.addColorStop(1, '#cc3300');
+            ctx.fillStyle = bodyGrad;
+            ctx.beginPath();
+            ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Wing
+            ctx.fillStyle = 'rgba(200, 60, 0, 0.7)';
+            ctx.beginPath();
+            ctx.ellipse(-4, 4, 8, 5, -0.4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Beak (pointing right, the direction of travel)
+            ctx.fillStyle = '#ffcc00';
+            ctx.beginPath();
+            ctx.moveTo(bird.radius - 2, -2);
+            ctx.lineTo(bird.radius + 7, 0);
+            ctx.lineTo(bird.radius - 2, 3);
+            ctx.closePath();
+            ctx.fill();
+
+            // Eye
             ctx.fillStyle = '#000';
             ctx.beginPath();
-            ctx.arc(bird.x + 5, bird.y - 3, 4, 0, Math.PI * 2);
+            ctx.arc(6, -5, 4, 0, Math.PI * 2);
             ctx.fill();
+            // Eye highlight
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(7, -6, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
         }
 
-        // Draw pipes
+        // ─── Draw pipes (with 3-D depth effect) ───────────────────────────
         function drawPipes() {
             pipes.forEach(pipe => {
-                // Top pipe
-                const topGradient = ctx.createLinearGradient(pipe.x, 0, pipe.x + pipeWidth, 0);
-                topGradient.addColorStop(0, '#660000');
-                topGradient.addColorStop(0.5, '#8b0000');
-                topGradient.addColorStop(1, '#660000');
-                ctx.fillStyle = topGradient;
-                ctx.fillRect(pipe.x, 0, pipeWidth, pipe.top);
+                const px = pipe.x;
+                const pw = pipeWidth;
 
-                // Top pipe rim
-                ctx.fillStyle = '#ff4500';
-                ctx.fillRect(pipe.x, pipe.top - 8, pipeWidth, 8);
+                // ── Top pipe ──────────────────────────────────────────────
+                // Main body — side-lit gradient for 3-D look
+                const topGrad = ctx.createLinearGradient(px, 0, px + pw, 0);
+                topGrad.addColorStop(0,   '#550000');
+                topGrad.addColorStop(0.15,'#8b0000');
+                topGrad.addColorStop(0.45,'#aa1100');
+                topGrad.addColorStop(0.7, '#7a0000');
+                topGrad.addColorStop(1,   '#440000');
+                ctx.fillStyle = topGrad;
+                ctx.fillRect(px, 0, pw, pipe.top - 8);
+
+                // Vertical highlight stripe
+                ctx.fillStyle = 'rgba(255,80,0,0.12)';
+                ctx.fillRect(px + pw * 0.25, 0, pw * 0.2, pipe.top - 8);
+
+                // Rivet marks every ~40px
+                ctx.fillStyle = 'rgba(255,60,0,0.25)';
+                for (let ry = 30; ry < pipe.top - 16; ry += 40) {
+                    ctx.beginPath();
+                    ctx.arc(px + pw * 0.25, ry, 2.5, 0, Math.PI * 2);
+                    ctx.arc(px + pw * 0.75, ry, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Rim cap
+                ctx.fillStyle = '#cc2200';
+                ctx.fillRect(px - 4, pipe.top - 12, pw + 8, 12);
+                // Rim bevel top edge
                 ctx.fillStyle = '#ff6b00';
-                ctx.fillRect(pipe.x + 2, pipe.top - 6, pipeWidth - 4, 4);
+                ctx.fillRect(px - 4, pipe.top - 12, pw + 8, 3);
+                // Rim inner shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                ctx.fillRect(px - 4, pipe.top - 3, pw + 8, 3);
 
-                // Bottom pipe
-                const botGradient = ctx.createLinearGradient(pipe.x, pipe.bottom, pipe.x + pipeWidth, pipe.bottom);
-                botGradient.addColorStop(0, '#660000');
-                botGradient.addColorStop(0.5, '#8b0000');
-                botGradient.addColorStop(1, '#660000');
-                ctx.fillStyle = botGradient;
-                ctx.fillRect(pipe.x, pipe.bottom, pipeWidth, canvas.height - pipe.bottom);
+                // ── Bottom pipe ───────────────────────────────────────────
+                const botGrad = ctx.createLinearGradient(px, pipe.bottom, px + pw, pipe.bottom);
+                botGrad.addColorStop(0,   '#550000');
+                botGrad.addColorStop(0.15,'#8b0000');
+                botGrad.addColorStop(0.45,'#aa1100');
+                botGrad.addColorStop(0.7, '#7a0000');
+                botGrad.addColorStop(1,   '#440000');
+                ctx.fillStyle = botGrad;
+                ctx.fillRect(px, pipe.bottom + 12, pw, canvas.height - pipe.bottom);
 
-                // Bottom pipe rim
-                ctx.fillStyle = '#ff4500';
-                ctx.fillRect(pipe.x, pipe.bottom, pipeWidth, 8);
+                // Vertical highlight stripe
+                ctx.fillStyle = 'rgba(255,80,0,0.12)';
+                ctx.fillRect(px + pw * 0.25, pipe.bottom + 12, pw * 0.2, canvas.height - pipe.bottom);
+
+                // Rivet marks
+                ctx.fillStyle = 'rgba(255,60,0,0.25)';
+                for (let ry = pipe.bottom + 30; ry < canvas.height - 10; ry += 40) {
+                    ctx.beginPath();
+                    ctx.arc(px + pw * 0.25, ry, 2.5, 0, Math.PI * 2);
+                    ctx.arc(px + pw * 0.75, ry, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Rim cap
+                ctx.fillStyle = '#cc2200';
+                ctx.fillRect(px - 4, pipe.bottom, pw + 8, 12);
+                // Rim bevel bottom edge
                 ctx.fillStyle = '#ff6b00';
-                ctx.fillRect(pipe.x + 2, pipe.bottom + 2, pipeWidth - 4, 4);
+                ctx.fillRect(px - 4, pipe.bottom + 9, pw + 8, 3);
+                // Rim inner shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                ctx.fillRect(px - 4, pipe.bottom, pw + 8, 3);
             });
         }
 
-        // Draw background
+        // ─── Draw background ───────────────────────────────────────────────
         function drawBackground() {
-            // Sky gradient
             const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
             skyGradient.addColorStop(0, '#3d0a00');
             skyGradient.addColorStop(0.5, '#2d0a00');
@@ -436,12 +637,10 @@
             ctx.fillStyle = skyGradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Parallax ground layers
             const groundY = canvas.height * 0.85;
             ctx.fillStyle = '#4a1a00';
             ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
 
-            // Scrolling ground pattern
             ctx.strokeStyle = 'rgba(255, 107, 0, 0.2)';
             ctx.lineWidth = 1;
             for (let i = -1; i < 3; i++) {
@@ -452,7 +651,6 @@
                 ctx.stroke();
             }
 
-            // Dust particles effect
             ctx.fillStyle = 'rgba(255, 107, 0, 0.1)';
             for (let i = 0; i < 5; i++) {
                 const x = (i * 120 + scrollOffset * 0.5) % canvas.width;
@@ -462,7 +660,16 @@
             }
         }
 
-        // Update game
+        // ─── Score flash ───────────────────────────────────────────────────
+        function flashScore() {
+            const el = document.getElementById('scoreDisplay');
+            el.classList.remove('flash');
+            // Force reflow so re-adding the class re-triggers animation
+            void el.offsetWidth;
+            el.classList.add('flash');
+        }
+
+        // ─── Update ────────────────────────────────────────────────────────
         function update() {
             if (game.gameOver || !game.started) return;
 
@@ -471,6 +678,10 @@
             // Bird physics
             bird.velocity += bird.gravity;
             bird.y += bird.velocity;
+
+            // Update rings & particles
+            updateJumpRings();
+            updateParticles();
 
             // Generate pipes
             pipeCounter++;
@@ -489,65 +700,80 @@
             pipes.forEach((pipe, index) => {
                 pipe.x -= 3;
 
-                // Score
                 if (!pipe.scored && pipe.x + pipeWidth < bird.x) {
                     pipe.scored = true;
                     game.score++;
                     document.getElementById('score').textContent = game.score;
                     scoreSound();
+                    flashScore();
+                    // Burst particles at the gap midpoint beside the bird
+                    spawnPipeParticles(bird.x, pipe.top + pipeGap / 2);
 
-                    // Show motivation on every 10th pipe
-                    if (game.score % 10 === 0) {
-                        showMotivation();
-                    }
+                    if (game.score % 10 === 0) showMotivation();
                 }
 
-                // Remove off-screen pipes
-                if (pipe.x + pipeWidth < 0) {
-                    pipes.splice(index, 1);
-                }
+                if (pipe.x + pipeWidth < 0) pipes.splice(index, 1);
             });
 
-            // Collision detection
+            // Boundary collision
             if (bird.y + bird.radius > canvas.height || bird.y - bird.radius < 0) {
                 endGame();
+                return;
             }
 
+            // Pipe collision
             pipes.forEach(pipe => {
                 if (
                     bird.x + bird.radius > pipe.x &&
                     bird.x - bird.radius < pipe.x + pipeWidth &&
                     (bird.y - bird.radius < pipe.top || bird.y + bird.radius > pipe.bottom)
                 ) {
+                    triggerShake(9, 20);
                     endGame();
                 }
             });
         }
 
-        // Draw game
+        // ─── Draw ──────────────────────────────────────────────────────────
         function draw() {
+            updateShake();
+
+            ctx.save();
+            ctx.translate(shake.offsetX, shake.offsetY);
+
             drawBackground();
+            drawParticles();
             drawPipes();
+            drawJumpRings();
             drawBird();
 
-            // Version text
             ctx.fillStyle = '#ff6b00';
             ctx.font = '14px Arial';
             ctx.fillText('v' + version, 10, 25);
+
+            ctx.restore();
         }
 
-        // Game loop
+        // ─── Game loop ─────────────────────────────────────────────────────
         function gameLoop() {
             update();
             draw();
             requestAnimationFrame(gameLoop);
         }
 
-        // End game
+        // ─── End game ──────────────────────────────────────────────────────
         function endGame() {
+            if (game.gameOver) return; // guard against double-trigger
             game.gameOver = true;
             gameOverSound();
-            document.getElementById('gameOverScreen').style.display = 'block';
+
+            const screen = document.getElementById('gameOverScreen');
+            screen.style.display = 'block';
+            // Trigger CSS fade-in on next frame
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => { screen.classList.add('visible'); });
+            });
+
             document.getElementById('finalScore').textContent = game.score;
 
             if (game.score > game.highScore) {
@@ -556,11 +782,10 @@
             }
             document.getElementById('highScore').textContent = game.highScore;
 
-            // Play music on death screen
             playStartMusic();
         }
 
-        // Controls - tap/click to fly
+        // ─── Controls ──────────────────────────────────────────────────────
         document.addEventListener('click', fly);
         document.addEventListener('touchstart', fly);
 
@@ -568,27 +793,22 @@
             e.preventDefault();
 
             if (!game.started) {
-                // Starting game - stop menu music
                 stopStartMusic();
                 game.started = true;
                 document.getElementById('startScreen').style.display = 'none';
             } else if (game.gameOver) {
-                // Restart from game over screen - just reload
                 location.reload();
             }
 
             bird.velocity = bird.lift;
             jumpSound();
+            spawnJumpRing();
         }
 
-        // Start game
+        // ─── Boot ──────────────────────────────────────────────────────────
         gameLoop();
 
-        // Start music immediately on page load
-        setTimeout(() => {
-            playStartMusic();
-        }, 100);
-        // Music starts on first user interaction
+        setTimeout(() => { playStartMusic(); }, 100);
         document.getElementById('highScore').textContent = game.highScore;
     </script>
 </body>
