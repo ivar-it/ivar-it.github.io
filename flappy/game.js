@@ -2258,6 +2258,16 @@
                     // Burst particles at the gap midpoint beside the bird
                     spawnPipeParticles(bird.x, pipe.top + pipeGap / 2);
 
+                    // Special hot streak effect when max combo reached (3x)
+                    if (game.comboMultiplier >= 3 && game.consecutivePipes % 5 === 0) {
+                        triggerShake(2, 10); // Small shake for combo milestones
+                        haptic([20, 10, 20]); // Pattern haptic for max combo
+                        // Spawn extra explosion particles
+                        for (let i = 0; i < 3; i++) {
+                            spawnExplosionParticles();
+                        }
+                    }
+
                     if (game.score % 10 === 0) showMotivation();
                 }
 
@@ -2424,6 +2434,20 @@
             }
 
             ctx.restore();
+
+            // Draw hot streak effect when combo is high
+            if (game.comboMultiplier > 2 && game.started && !game.gameOver) {
+                ctx.save();
+                // Hot orange/red edges for high combo
+                const comboIntensity = Math.min(0.3, (game.comboMultiplier - 2) * 0.15);
+                ctx.globalAlpha = comboIntensity;
+                // Edge border glow
+                ctx.fillStyle = '#ff4500';
+                const edgeWidth = 8;
+                ctx.fillRect(0, 0, canvas.width, edgeWidth); // top
+                ctx.fillRect(0, canvas.height - edgeWidth, canvas.width, edgeWidth); // bottom
+                ctx.restore();
+            }
 
             // Draw slowmo screen effect (cyan tint + edge focus)
             if (game.activePowerUps.slowmo) {
