@@ -2020,6 +2020,18 @@
                     game.invulnerabilityTimer = 1000;
                     return;
                 }
+                // Boundary hit - dramatic collision
+                if (!deathSequence.active) {
+                    deathSequence.active = true;
+                    deathSequence.startTime = Date.now();
+                    deathSequence.collisionX = bird.x;
+                    deathSequence.collisionY = bird.y;
+                    triggerShake(15, 30);
+                    for (let i = 0; i < 2; i++) {
+                        spawnDeathTrailParticles(bird.x, bird.y);
+                    }
+                    triggerScreenFlash();
+                }
                 endGame();
                 return;
             }
@@ -2047,14 +2059,24 @@
                         return;
                     }
 
-                    // Initiate death sequence
+                    // Initiate death sequence with dramatic collision effects
                     if (!deathSequence.active) {
                         deathSequence.active = true;
                         deathSequence.startTime = Date.now();
                         deathSequence.collisionX = bird.x;
                         deathSequence.collisionY = bird.y;
+                        deathSequence.collisionPipeX = pipe.x + pipeWidth / 2;
+                        // Massive initial shake
+                        triggerShake(15, 30);
+                        // Spawn heavy particle explosion at pipe hit point
                         spawnPipeCrackParticles(pipe.x + pipeWidth / 2, bird.y);
-                        triggerShake(12, 25);
+                        spawnPipeCrackParticles(pipe.x + pipeWidth / 2, bird.y);
+                        // Bird collision burst
+                        for (let i = 0; i < 3; i++) {
+                            spawnDeathTrailParticles(bird.x, bird.y);
+                        }
+                        // Screen flash impact
+                        triggerScreenFlash();
                     }
                     endGame();
                 }
@@ -2109,95 +2131,137 @@
         // ─── Update death sequence ───────────────────────────────────────
         function updateDeathSequence() {
             if (!deathSequence.active) return;
-            
+
             const elapsed = Date.now() - deathSequence.startTime;
             const progress = Math.min(1, elapsed / deathSequence.duration);
-            
-            // Bird tumble rotation
-            deathSequence.birdRotation += 0.25; // 0.25 rad per frame
-            
-            // Slow-motion effect - accelerate back to normal over time
-            deathSequence.slowMotionFactor = 0.3 + progress * 0.7;
-            
-            // Screen tint fade in
-            deathSequence.screenTintTarget = progress * 0.5;
-            deathSequence.screenTint += (deathSequence.screenTintTarget - deathSequence.screenTint) * deathSequence.screenTintSpeed;
-            
-            // "DEAD" text appearance
-            if (progress > 0.15) {
-                deathSequence.showDeadText = true;
-                deathSequence.deadTextAlpha = Math.min(1, (progress - 0.15) / 0.2);
-                deathSequence.deadTextScale = 0.5 + deathSequence.deadTextAlpha * 0.5;
+
+            // PHASE 1: Slow-motion (first 200ms)
+            if (elapsed < deathSequence.slowMotionDuration) {
+                deathSequence.slowMotionActive = true;
+                deathSequence.slowMotionFactor = 0.2; // Heavy slow-mo
+            } else {
+                // Gradually recover to normal speed
+                const recoveryProgress = (elapsed - deathSequence.slowMotionDuration) / 400;
+                deathSequence.slowMotionFactor = 0.2 + Math.min(1, recoveryProgress) * 0.8;
             }
-            
-            // Spawn death trail particles
-            if (progress < 0.7) {
-                if (Math.random() < 0.6) {
-                    spawnDeathTrailParticles(bird.x, bird.y);
+
+            // Bird tumble rotation - accelerating spin
+            deathSequence.birdRotation += deathSequence.birdSpinSpeed * deathSequence.slowMotionFactor;
+
+            // Red blink intensity (peaks early, fades)
+            const blinkPhase = Math.min(1, elapsed / 300);
+            deathSequence.birdBlinkIntensity = Math.sin(blinkPhase * Math.PI * 3) * (1 - blinkPhase * 0.5);
+
+            // Screen tint fade in - more dramatic
+            if (progress < 0.6) {
+                deathSequence.screenTintTarget = progress * deathSequence.screenTintMaxOpacity;
+            } else {
+                // Hold tint then fade to game-over
+                deathSequence.screenTintTarget = deathSequence.screenTintMaxOpacity * (1 - (progress - 0.6) * 0.5);
+            }
+            deathSequence.screenTint += (deathSequence.screenTintTarget - deathSequence.screenTint) * deathSequence.screenTintSpeed;
+
+            // "DEAD" text appearance - pop in at midway
+            const deadTextProgress = (elapsed - deathSequence.deadTextAppearTime) / 200;
+            if (deadTextProgress >= 0) {
+                deathSequence.showDeadText = true;
+                deathSequence.deadTextAlpha = Math.min(1, deadTextProgress);
+                // Pop-in scale effect
+                deathSequence.deadTextScale = 0.3 + deathSequence.deadTextAlpha * 0.7;
+                if (deadTextProgress > 0.5) {
+                    deathSequence.deadTextScale = 1 + Math.sin((deadTextProgress - 0.5) * Math.PI) * 0.15;
                 }
             }
-            
+
+            // Spawn death trail particles - higher rate at start, tapers off
+            const trailIntensity = Math.max(0.1, 1 - progress * 1.5);
+            if (progress < 0.65 && Math.random() < 0.7 * trailIntensity) {
+                spawnDeathTrailParticles(bird.x, bird.y);
+            }
+
             // Stop after duration
             if (progress >= 1) {
                 deathSequence.active = false;
+                deathSequence.slowMotionActive = false;
             }
         }
 
         function drawDeathSequence() {
             if (!deathSequence.active) return;
-            
+
             // Save bird rotation state
             const originalRotation = bird.rotation;
             bird.rotation = deathSequence.birdRotation;
-            
-            // Draw bird with red tint
+
+            // Draw bird with enhanced red collision blink
             ctx.save();
             ctx.translate(bird.x, bird.y);
             ctx.rotate(bird.rotation);
-            
-            // Red blink effect
-            const blinkAlpha = Math.sin(deathSequence.birdRotation * 3) * 0.3 + 0.2;
-            ctx.globalAlpha = blinkAlpha;
+
+            // Red collision flash - intense, then fading
+            const blinkAlpha = Math.max(0, deathSequence.birdBlinkIntensity);
+            ctx.globalAlpha = blinkAlpha * 0.8;
             ctx.fillStyle = '#ff0000';
             ctx.beginPath();
-            ctx.arc(0, 0, bird.radius * 1.2, 0, Math.PI * 2);
+            ctx.arc(0, 0, bird.radius * 1.3, 0, Math.PI * 2);
             ctx.fill();
-            
+
+            // Intense glow on first impact
+            ctx.globalAlpha = blinkAlpha * 0.5;
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 20;
+            ctx.fillStyle = '#ff4444';
+            ctx.beginPath();
+            ctx.arc(0, 0, bird.radius * 1.5, 0, Math.PI * 2);
+            ctx.fill();
+
             ctx.restore();
             bird.rotation = originalRotation;
-            
-            // Screen red/dark tint overlay
+
+            // Screen red/dark tint overlay - more dramatic
             if (deathSequence.screenTint > 0) {
                 ctx.save();
-                ctx.globalAlpha = deathSequence.screenTint * 0.7;
-                ctx.fillStyle = '#cc0000';
+                // Red tint (damage effect)
+                ctx.globalAlpha = deathSequence.screenTint * 0.8;
+                ctx.fillStyle = '#dd0000';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.globalAlpha = deathSequence.screenTint * 0.5;
+                // Dark overlay on top
+                ctx.globalAlpha = deathSequence.screenTint * 0.4;
                 ctx.fillStyle = '#000000';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.restore();
             }
-            
-            // "DEAD" text
+
+            // "DEAD" text with dramatic pop-in and glow
             if (deathSequence.showDeadText && deathSequence.deadTextAlpha > 0) {
                 ctx.save();
                 ctx.globalAlpha = deathSequence.deadTextAlpha;
                 ctx.translate(canvas.width / 2, canvas.height / 2);
                 ctx.scale(deathSequence.deadTextScale, deathSequence.deadTextScale);
-                
-                ctx.font = 'bold 120px Arial';
+
+                // Text glow effect
+                ctx.shadowColor = '#ff0000';
+                ctx.shadowBlur = 30;
                 ctx.fillStyle = '#ff0000';
+                ctx.font = 'bold 140px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.shadowColor = '#000000';
-                ctx.shadowBlur = 20;
                 ctx.fillText('DEAD', 0, 0);
-                
-                // Outline
+
+                // Secondary glow
+                ctx.globalAlpha = deathSequence.deadTextAlpha * 0.6;
+                ctx.shadowColor = '#ff6b00';
+                ctx.shadowBlur = 50;
                 ctx.strokeStyle = '#ff6b00';
-                ctx.lineWidth = 3;
+                ctx.lineWidth = 4;
                 ctx.strokeText('DEAD', 0, 0);
-                
+
+                // Outline
+                ctx.globalAlpha = deathSequence.deadTextAlpha;
+                ctx.strokeStyle = '#ffff00';
+                ctx.lineWidth = 2;
+                ctx.strokeText('DEAD', 0, 0);
+
                 ctx.restore();
             }
         }
