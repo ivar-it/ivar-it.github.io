@@ -629,10 +629,16 @@
             cursor: pointer;
             z-index: 11;
             transition: all 0.3s;
-            display: flex;
+            display: none;
             align-items: center;
             justify-content: center;
             box-shadow: 0 0 15px rgba(255, 107, 0, 0.3);
+        }
+
+        /* Show customize button only on difficulty selector screen */
+        .difficulty-selector ~ .customize-btn,
+        .customize-btn.visible {
+            display: flex;
         }
 
         .customize-btn:hover {
@@ -2880,6 +2886,9 @@
                 requestAnimationFrame(() => { screen.classList.add('visible'); });
             });
 
+            // Show customize button on game over (will show difficulty selector on restart)
+            document.getElementById('customizeBtn').classList.add('visible');
+
             document.getElementById('finalScore').textContent = game.score;
 
             if (game.score > game.highScore) {
@@ -2925,8 +2934,9 @@
             // Start new run tracking
             statsManager.startNewRun(difficulty);
 
-            // Hide difficulty selector and start the game immediately
+            // Hide difficulty selector and customize button, start the game immediately
             document.getElementById('difficultySelector').style.display = 'none';
+            document.getElementById('customizeBtn').classList.remove('visible');
             stopStartMusic();
             game.started = true;
 
@@ -2994,7 +3004,7 @@
         const tapDebounceDelay = 100;
 
         function fly(e) {
-            if (e.target.closest('.sound-toggle') || e.target.closest('.difficulty-btn')) {
+            if (e.target.closest('.sound-toggle') || e.target.closest('.difficulty-btn') || e.target.closest('.customize-btn')) {
                 return;
             }
 
@@ -3241,7 +3251,9 @@
         document.getElementById('highScore').textContent = game.highScore;
         updateStreakDisplay();
         updateSoundButtonUI();
-        // Difficulty selector shown on page load for user to choose
+
+        // Show customize button on page load (difficulty selector is visible)
+        document.getElementById('customizeBtn').classList.add('visible');
     </script>
 </body>
 </html>
