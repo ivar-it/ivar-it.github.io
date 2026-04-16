@@ -202,7 +202,7 @@
         const pipeGap = 210;
         const pipeWidth = 50;
         let pipeCounter = 0;
-        const version = '1.6';
+        const version = '1.7';
         let scrollOffset = 0;
 
         // Audio context for sound effects
@@ -238,28 +238,33 @@
         let musicTimeoutId = null;
 
         function playMelodySequence() {
-            // 10-second apocalyptic melody
+            // Dark Tetris-style apocalyptic melody
             const melody = [
-                { freq: 220, duration: 0.4 },
-                { freq: 220, duration: 0.4 },
-                { freq: 275, duration: 0.4 },
-                { freq: 330, duration: 0.4 },
-                { freq: 220, duration: 0.4 },
-                { freq: 165, duration: 0.8 },
-                { freq: 220, duration: 0.4 },
-                { freq: 275, duration: 0.4 },
-                { freq: 330, duration: 0.4 },
-                { freq: 275, duration: 0.4 },
-                { freq: 220, duration: 0.8 },
-                { freq: 330, duration: 0.4 },
-                { freq: 330, duration: 0.4 },
-                { freq: 275, duration: 0.4 },
-                { freq: 220, duration: 0.4 },
-                { freq: 275, duration: 0.4 },
-                { freq: 330, duration: 0.8 },
-                { freq: 220, duration: 0.4 },
-                { freq: 165, duration: 0.4 },
-                { freq: 165, duration: 1.0 },
+                // Main theme - lower octave, sinister
+                { freq: 110, duration: 0.4 },   // E low
+                { freq: 147.83, duration: 0.4 }, // D
+                { freq: 110, duration: 0.4 },   // E low
+                { freq: 147.83, duration: 0.4 }, // D
+                { freq: 110, duration: 0.8 },   // E low held
+                { freq: 164.81, duration: 0.4 }, // E
+                { freq: 220, duration: 0.4 },   // A
+                { freq: 247.14, duration: 0.8 }, // B
+
+                // Descending sinister part
+                { freq: 196, duration: 0.4 },   // G
+                { freq: 164.81, duration: 0.4 }, // E
+                { freq: 147.83, duration: 0.4 }, // D
+                { freq: 123.47, duration: 0.8 }, // B low
+                { freq: 147.83, duration: 0.4 }, // D
+                { freq: 164.81, duration: 0.4 }, // E
+                { freq: 196, duration: 0.4 },   // G
+                { freq: 220, duration: 0.8 },   // A
+
+                // Darker build
+                { freq: 110, duration: 0.4 },   // E low
+                { freq: 147.83, duration: 0.4 }, // D
+                { freq: 110, duration: 0.4 },   // E low
+                { freq: 82.41, duration: 1.0 }, // E very low
             ];
 
             if (!musicPlaying) return;
