@@ -1187,15 +1187,23 @@
         }
 
         let musicPlaying = false;
-        let musicSource = null;
+        let musicLoopTimeout = null;
 
         function playMelodySequence() {
             if (!game.soundEnabled || !audioBuffers['menuMusic']) {
                 musicPlaying = false;
                 return;
             }
-            // Menu music is looping, play it continuously
+
+            // Play the menu music
             playAudioBuffer('menuMusic');
+
+            // Schedule to loop (menu-music.mp3 is ~4 seconds)
+            if (musicPlaying) {
+                musicLoopTimeout = setTimeout(() => {
+                    if (musicPlaying) playMelodySequence();
+                }, 3800); // Slightly before it ends to avoid gaps
+            }
         }
 
         function playStartMusic() {
@@ -1212,10 +1220,10 @@
 
         function stopStartMusic() {
             musicPlaying = false;
-            // Stop any currently playing music sources
-            audioSources.forEach(source => {
-                try { source.stop(); } catch (e) {}
-            });
+            if (musicLoopTimeout) {
+                clearTimeout(musicLoopTimeout);
+                musicLoopTimeout = null;
+            }
         }
 
         // ─── Message queue system for popups ──────────────────────────────
@@ -1250,16 +1258,24 @@
                 const popupId = type === 'streak' ? 'comboPopup' : 'motivationPopup';
                 const popup = document.getElementById(popupId);
 
-                popup.textContent = message;
-                popup.style.display = 'block';
-                popup.classList.remove('disappear');
+                // Update DOM without blocking
+                requestAnimationFrame(() => {
+                    popup.textContent = message;
+                    popup.style.display = 'block';
+                    popup.classList.remove('disappear');
+                });
 
+                // Schedule hide operation
                 setTimeout(() => {
-                    popup.classList.add('disappear');
+                    requestAnimationFrame(() => {
+                        popup.classList.add('disappear');
+                    });
                     setTimeout(() => {
-                        popup.style.display = 'none';
-                        this.isProcessing = false;
-                        this.process();
+                        requestAnimationFrame(() => {
+                            popup.style.display = 'none';
+                            this.isProcessing = false;
+                            this.process();
+                        });
                     }, 200);
                 }, duration);
             }
