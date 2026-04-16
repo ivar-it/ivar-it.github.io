@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1.0">
+    <meta name="theme-color" content="#1a0000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Flappy Apocalypse">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <title>FLAPPY BIRD - APOCALYPSE</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Landscape rotate prompt (CSS shows it on touch landscape viewports) -->
+    <div class="rotate-prompt" aria-live="polite">
+        <div class="rotate-prompt-icon">&#x1F4F1;</div>
+        <h2>ROTATE YOUR DEVICE</h2>
+        <p>Flappy Apocalypse plays best in portrait mode</p>
+    </div>
+    <div class="container" id="gameContainer">
+        <button class="customize-btn" id="customizeBtn" title="Customize bird" aria-label="Customize bird">👕</button>
+        <button class="sound-toggle" id="soundToggle" title="Toggle sound" aria-label="Toggle sound">🔊</button>
+        <div class="ui">
+            <div class="score" id="scoreDisplay">Score: <span id="score">0</span></div>
+        </div>
+        <div class="streak-display" id="streakDisplay">
+            <div class="streak-label">STREAK</div>
+            <div id="streakCount">0</div>
+        </div>
+        <div class="power-up-display" id="powerUpDisplay"></div>
+        <div class="multiplier-display" id="multiplierDisplay">SCORE x<span id="multiplier">1</span></div>
+        <div class="xp-bar-container" id="xpBarContainer">
+            <div class="xp-level-label" id="xpLevelLabel">Lv.1</div>
+            <div class="xp-bar-track">
+                <div class="xp-bar-fill" id="xpBarFill"></div>
+            </div>
+            <div class="xp-progress-text" id="xpProgressText">0 / 100 XP</div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+        <div class="levelup-overlay" id="levelupOverlay">
+            <canvas class="confetti-canvas" id="confettiCanvas"></canvas>
+            <div class="levelup-popup" id="levelupPopup">
+                <div class="levelup-title">LEVEL UP!</div>
+                <div class="levelup-level" id="levelupLevelText">Level 2</div>
+                <div class="levelup-unlock" id="levelupUnlock"></div>
+            </div>
+        </div>
+        <div class="game-over" id="gameOverScreen">
+            <h1>&#9760;&#65039; GAME OVER &#9760;&#65039;</h1>
+            <p>Final Score: <span id="finalScore">0</span></p>
+            <p>High Score: <span id="highScore">0</span></p>
+            <div id="runStatsContainer" style="margin: 15px 0; font-size: 16px; opacity: 0.9;">
+                <p id="streakMessage" style="margin: 5px 0;"></p>
+                <p id="powerUpMessage" style="margin: 5px 0;"></p>
+                <p id="personalBestMessage" style="margin: 5px 0; color: #ffaa00;"></p>
+                <p id="pipeMessage" style="margin: 5px 0;"></p>
+            </div>
+            <button onclick="location.reload()" aria-label="Restart the game">RESTART</button>
+        </div>
+        <div class="start-screen" id="startScreen">
+            <h1>FLAPPY BIRD</h1>
+            <p>APOCALYPSE</p>
+            <div class="hint">&#8593; TAP or CLICK to START &#8593;</div>
+        </div>
+        <div class="motivation-popup" id="motivationPopup"></div>
+        <div class="combo-popup" id="comboPopup"></div>
+        <div class="difficulty-selector" id="difficultySelector">
+            <h1>SELECT DIFFICULTY</h1>
+            <p>Choose your apocalyptic fate...</p>
+            <div class="difficulty-buttons">
+                <button class="difficulty-btn" data-difficulty="easy" aria-label="Easy difficulty: Slow pipes, relaxed gameplay">
+                    Easy
+                    <div class="difficulty-desc">Slow pipes, relaxed</div>
+                    <div class="difficulty-tooltip">Gap: 250px | Speed: 2 | Gravity: 0.25</div>
+                </button>
+                <button class="difficulty-btn" data-difficulty="normal" aria-label="Normal difficulty: Classic Flappy Bird challenge">
+                    Normal
+                    <div class="difficulty-desc">Classic Flappy challenge</div>
+                    <div class="difficulty-tooltip">Gap: 210px | Speed: 3 | Gravity: 0.35</div>
+                </button>
+                <button class="difficulty-btn" data-difficulty="hard" aria-label="Hard difficulty: Fast pipes with tight gaps">
+                    Hard
+                    <div class="difficulty-desc">Fast pipes, tight gaps</div>
+                    <div class="difficulty-tooltip">Gap: 180px | Speed: 4 | Gravity: 0.42</div>
+                </button>
+                <button class="difficulty-btn" data-difficulty="insane" aria-label="Insane difficulty: Maximum chaos with very fast gaps">
+                    Insane
+                    <div class="difficulty-desc">Max chaos, fast gaps</div>
+                    <div class="difficulty-tooltip">Gap: 150px | Speed: 5 | Gravity: 0.5</div>
+                </button>
+            </div>
+        </div>
+        <div class="instructions">
+            TAP or CLICK to fly &bull; Avoid pipes
+            <div class="keyboard-hint">SPACE/UP ARROW to fly &bull; ESC for stats &bull; R to restart</div>
+        </div>
+        <div class="stats-overlay" id="statsOverlay">
+            <div class="stats-panel">
+                <h2>APOCALYPSE STATS</h2>
+
+                <div class="stats-section">
+                    <h3>CURRENT RUN</h3>
+                    <div class="stats-item">
+                        <span>Score</span>
+                        <span id="statsCurrentScore">0</span>
+                    </div>
+                    <div class="stats-item">
+                        <span>Streak</span>
+                        <span id="statsCurrentStreak">0</span>
+                    </div>
+                    <div class="stats-item">
+                        <span>Pipes Cleared</span>
+                        <span id="statsCurrentPipes">0</span>
+                    </div>
+                </div>
+
+                <div class="stats-section">
+                    <h3>ALL-TIME</h3>
+                    <div class="stats-item">
+                        <span>Personal Best</span>
+                        <span id="statsAllTimeBest">0</span>
+                    </div>
+                    <div class="stats-item">
+                        <span>Best Streak</span>
+                        <span id="statsAllTimeStreak">0</span>
+                    </div>
+                    <div class="stats-item">
+                        <span>Total Games</span>
+                        <span id="statsGamesPlayed">0</span>
+                    </div>
+                    <div class="stats-item">
+                        <span>Total Pipes</span>
+                        <span id="statsAllTimePipes">0</span>
+                    </div>
+                </div>
+
+                <div class="stats-hint">Press ESC or click to close</div>
+            </div>
+        </div>
+        <div class="customize-overlay" id="customizeOverlay">
+            <div class="customize-panel">
+                <button class="customize-close" id="customizeCloseBtn">✕</button>
+                <h2>BIRD SKINS</h2>
+                <div class="skins-grid" id="skinsGrid"></div>
+                <div class="customize-hint">Select a skin to customize your bird | Press ESC to close</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
