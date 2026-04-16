@@ -243,9 +243,12 @@
                 0 0 12px rgba(255, 140, 0, 0.6);
             display: none;
             animation: popupAppear 0.2s ease-out forwards;
-            max-width: 80%;
+            max-width: 90%;
             text-align: center;
             opacity: 0.6;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         @keyframes popupAppear {
@@ -559,7 +562,7 @@
             color: #ff6b00;
             font-size: 40px;
             cursor: pointer;
-            display: flex;
+            display: none;
             align-items: center;
             justify-content: center;
             transition: all 0.15s;
@@ -570,6 +573,12 @@
             min-width: 80px;
             min-height: 80px;
             -webkit-user-select: none;
+        }
+
+        /* Show sound toggle only on difficulty selector screen */
+        .difficulty-selector ~ .sound-toggle,
+        .sound-toggle.visible {
+            display: flex;
         }
 
         .sound-toggle:active {
@@ -1148,7 +1157,7 @@
         }
 
         .customize-panel h2 {
-            font-size: 26px;
+            font-size: 24px;
             margin: 0 0 20px 0;
             border-bottom: 2px solid rgba(255, 107, 0, 0.5);
             padding-bottom: 14px;
@@ -1577,7 +1586,7 @@
         <p>Flappy Apocalypse plays best in portrait mode</p>
     </div>
     <div class="container" id="gameContainer">
-        <button class="customize-btn" id="customizeBtn" title="Customize bird" aria-label="Customize bird">⚙️</button>
+        <button class="customize-btn" id="customizeBtn" title="Customize bird" aria-label="Customize bird">👕</button>
         <button class="sound-toggle" id="soundToggle" title="Toggle sound" aria-label="Toggle sound">🔊</button>
         <div class="ui">
             <div class="score" id="scoreDisplay">Score: <span id="score">0</span></div>
@@ -2165,7 +2174,7 @@
         let pipeCounter = 0;
         let pipeSpeed = 3;
         let pipeFrequency = 90;
-        const version = '0.6.2';
+        const version = '0.6.3';
 
         // ─── XP & Level System ────────────────────────────────────────────
         // Level thresholds: how much TOTAL XP to reach each level
@@ -3977,6 +3986,7 @@
 
             // Show customize button on game over (will show difficulty selector on restart)
             document.getElementById('customizeBtn').classList.add('visible');
+            document.getElementById('soundToggle').classList.add('visible');
 
             document.getElementById('finalScore').textContent = game.score;
 
@@ -4026,6 +4036,7 @@
             // Hide difficulty selector and customize button, start the game immediately
             document.getElementById('difficultySelector').style.display = 'none';
             document.getElementById('customizeBtn').classList.remove('visible');
+            document.getElementById('soundToggle').classList.remove('visible');
             stopStartMusic();
             game.started = true;
 
@@ -4582,6 +4593,7 @@
 
         // Show customize button on page load (difficulty selector is visible)
         document.getElementById('customizeBtn').classList.add('visible');
+        document.getElementById('soundToggle').classList.add('visible');
     </script>
 </body>
 </html>
