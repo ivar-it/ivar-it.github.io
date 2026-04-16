@@ -1412,24 +1412,54 @@
             updatePowerUpDisplay();
         }
 
+        let powerUpDisplayCache = {};
+
         function updatePowerUpDisplay() {
             const display = document.getElementById('powerUpDisplay');
-            display.innerHTML = '';
+            const currentState = {};
 
+            // Build new state
             Object.keys(game.activePowerUps).forEach(type => {
                 const active = game.activePowerUps[type];
                 if (!active) return;
-
-                const element = document.createElement('div');
-                element.className = `power-up-item ${type}`;
 
                 let timeRemaining = 'ACTIVE';
                 if (active.duration !== Infinity) {
                     const elapsed = Date.now() - active.startTime;
                     const remaining = Math.ceil((active.duration - elapsed) / 1000);
                     timeRemaining = `${remaining}s`;
+                }
+                currentState[type] = timeRemaining;
+            });
 
-                    // Flash when about to expire (< 3 seconds)
+            // Simple state comparison (avoid expensive JSON.stringify)
+            let stateChanged = Object.keys(currentState).length !== Object.keys(powerUpDisplayCache).length;
+            if (!stateChanged) {
+                for (let type in currentState) {
+                    if (currentState[type] !== powerUpDisplayCache[type]) {
+                        stateChanged = true;
+                        break;
+                    }
+                }
+            }
+
+            powerUpDisplayCache = currentState;
+
+            // Only update DOM if changes detected
+            if (!stateChanged && display.children.length > 0) {
+                return;
+            }
+
+            // Clear and rebuild (only when needed)
+            display.innerHTML = '';
+            Object.keys(currentState).forEach(type => {
+                const timeRemaining = currentState[type];
+                const element = document.createElement('div');
+                element.className = `power-up-item ${type}`;
+
+                // Flash when about to expire (< 3 seconds)
+                if (timeRemaining !== 'ACTIVE') {
+                    const remaining = parseInt(timeRemaining);
                     if (remaining <= 3 && remaining > 0) {
                         element.classList.add('expiring');
                     }
