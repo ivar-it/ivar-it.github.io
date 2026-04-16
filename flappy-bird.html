@@ -336,6 +336,10 @@
         function playStartMusic() {
             if (musicPlaying) return;
             musicPlaying = true;
+            // Resume audio context (required in modern browsers)
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
             playMelodySequence();
         }
 
