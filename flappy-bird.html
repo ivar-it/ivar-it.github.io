@@ -216,12 +216,154 @@
         .motivation-popup.disappear {
             animation: popupDisappear 0.3s ease-in forwards;
         }
+
+        .difficulty-selector {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 50px;
+            border-radius: 10px;
+            text-align: center;
+            color: #ff6b00;
+            z-index: 20;
+            border: 3px solid #ff6b00;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .difficulty-selector h1 {
+            font-size: 48px;
+            text-shadow: 0 0 20px rgba(255, 107, 0, 1);
+            margin: 0;
+        }
+
+        .difficulty-selector p {
+            font-size: 18px;
+            margin: 0;
+            opacity: 0.8;
+        }
+
+        .difficulty-buttons {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .difficulty-btn {
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border: 2px solid #ff6b00;
+            border-radius: 5px;
+            background: rgba(255, 107, 0, 0.1);
+            color: #ff6b00;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            min-width: 120px;
+        }
+
+        .difficulty-btn:hover {
+            background: #ff6b00;
+            color: #000;
+            transform: scale(1.08);
+        }
+
+        .difficulty-btn.selected {
+            background: #ff6b00;
+            color: #000;
+        }
+
+        .difficulty-desc {
+            font-size: 13px;
+            color: #ff8c00;
+            margin-top: 5px;
+            min-height: 40px;
+        }
+
+        .streak-display {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #ffaa00;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 170, 0, 0.8);
+            z-index: 10;
+            pointer-events: none;
+            text-align: right;
+        }
+
+        .streak-display .streak-label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .combo-popup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            background: rgba(255, 170, 0, 0.3);
+            color: #ffff00;
+            padding: 20px 30px;
+            border-radius: 10px;
+            font-size: 48px;
+            font-weight: bold;
+            z-index: 25;
+            text-shadow:
+                -2px -2px 0 rgba(0, 0, 0, 0.9),
+                2px -2px 0 rgba(0, 0, 0, 0.9),
+                -2px 2px 0 rgba(0, 0, 0, 0.9),
+                2px 2px 0 rgba(0, 0, 0, 0.9),
+                0 0 20px rgba(255, 255, 0, 1);
+            display: none;
+            border: 3px solid #ffff00;
+            animation: comboPopupAppear 0.3s ease-out forwards;
+            max-width: 85%;
+            text-align: center;
+        }
+
+        @keyframes comboPopupAppear {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.3);
+            }
+            100% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        @keyframes comboPopupDisappear {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.5);
+            }
+        }
+
+        .combo-popup.disappear {
+            animation: comboPopupDisappear 0.3s ease-in forwards;
+        }
     </style>
 </head>
 <body>
     <div class="container" id="gameContainer">
         <div class="ui">
             <div class="score" id="scoreDisplay">Score: <span id="score">0</span></div>
+        </div>
+        <div class="streak-display" id="streakDisplay">
+            <div class="streak-label">STREAK</div>
+            <div id="streakCount">0</div>
         </div>
         <canvas id="gameCanvas"></canvas>
         <div class="game-over" id="gameOverScreen">
@@ -236,6 +378,29 @@
             <div class="hint">&#8593; TAP or CLICK to START &#8593;</div>
         </div>
         <div class="motivation-popup" id="motivationPopup"></div>
+        <div class="combo-popup" id="comboPopup"></div>
+        <div class="difficulty-selector" id="difficultySelector">
+            <h1>SELECT DIFFICULTY</h1>
+            <p>Choose your apocalyptic fate...</p>
+            <div class="difficulty-buttons">
+                <button class="difficulty-btn" data-difficulty="easy">
+                    Easy
+                    <div class="difficulty-desc">Slow pipes, relaxed</div>
+                </button>
+                <button class="difficulty-btn" data-difficulty="normal">
+                    Normal
+                    <div class="difficulty-desc">Classic Flappy challenge</div>
+                </button>
+                <button class="difficulty-btn" data-difficulty="hard">
+                    Hard
+                    <div class="difficulty-desc">Fast pipes, tight gaps</div>
+                </button>
+                <button class="difficulty-btn" data-difficulty="insane">
+                    Insane
+                    <div class="difficulty-desc">Max chaos, fast gaps</div>
+                </button>
+            </div>
+        </div>
         <div class="instructions">TAP or CLICK to fly &bull; Avoid pipes</div>
     </div>
 
@@ -252,12 +417,55 @@
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
 
+        // Difficulty settings
+        const difficultySettings = {
+            easy: {
+                gravity: 0.25,
+                lift: -5,
+                pipeSpeed: 2,
+                pipeGap: 250,
+                pipeFrequency: 110,
+                streakThreshold: 8,
+                label: 'EASY'
+            },
+            normal: {
+                gravity: 0.35,
+                lift: -5,
+                pipeSpeed: 3,
+                pipeGap: 210,
+                pipeFrequency: 90,
+                streakThreshold: 5,
+                label: 'NORMAL'
+            },
+            hard: {
+                gravity: 0.42,
+                lift: -5.5,
+                pipeSpeed: 4,
+                pipeGap: 180,
+                pipeFrequency: 75,
+                streakThreshold: 3,
+                label: 'HARD'
+            },
+            insane: {
+                gravity: 0.5,
+                lift: -6,
+                pipeSpeed: 5,
+                pipeGap: 150,
+                pipeFrequency: 60,
+                streakThreshold: 2,
+                label: 'INSANE'
+            }
+        };
+
         // Game objects
         const game = {
             score: 0,
             highScore: localStorage.getItem('flappyBirdHighScore') || 0,
             gameOver: false,
-            started: false
+            started: false,
+            difficulty: 'normal',
+            streak: 0,
+            maxStreak: localStorage.getItem('flappyBirdMaxStreak') || 0
         };
 
         const bird = {
@@ -272,10 +480,12 @@
         };
 
         const pipes = [];
-        const pipeGap = 210;
+        let pipeGap = 210;
         const pipeWidth = 50;
         let pipeCounter = 0;
-        const version = '0.2.0';
+        let pipeSpeed = 3;
+        let pipeFrequency = 90;
+        const version = '0.3.0';
         let scrollOffset = 0;
 
         // ─── Particle system ───────────────────────────────────────────────
@@ -494,6 +704,56 @@
             }, 1800);
         }
 
+        // ─── Combo/Streak system ──────────────────────────────────────────
+        const streakMessages = [
+            '🔥 x2 COMBO!',
+            '⚡ x3 COMBO!!',
+            '💥 x5 COMBO!!!',
+            '🌪️ x7 MEGA!!',
+            '☠️ x10 APOCALYPTIC!!',
+            '🔥 STREAK ON FIRE!'
+        ];
+
+        function updateStreakDisplay() {
+            document.getElementById('streakCount').textContent = game.streak;
+        }
+
+        function showComboPopup(multiplier) {
+            const popup = document.getElementById('comboPopup');
+            const message = streakMessages[Math.min(streakMessages.length - 1, Math.floor(multiplier / 2))];
+            popup.textContent = message;
+            popup.style.display = 'block';
+            popup.classList.remove('disappear');
+
+            setTimeout(() => {
+                popup.classList.add('disappear');
+                setTimeout(() => { popup.style.display = 'none'; }, 300);
+            }, 1500);
+        }
+
+        function addToStreak() {
+            const streakThreshold = difficultySettings[game.difficulty].streakThreshold;
+            game.streak++;
+
+            if (game.streak > game.maxStreak) {
+                game.maxStreak = game.streak;
+                localStorage.setItem('flappyBirdMaxStreak', game.maxStreak);
+            }
+
+            updateStreakDisplay();
+
+            if (game.streak % streakThreshold === 0) {
+                showComboPopup(game.streak);
+                playSound(600, 0.2);
+                setTimeout(() => playSound(700, 0.2), 100);
+            }
+        }
+
+        function resetStreak() {
+            game.streak = 0;
+            updateStreakDisplay();
+        }
+
         // ─── Draw bird (with rotation) ─────────────────────────────────────
         function drawBird() {
             // Target rotation: clamp velocity-based tilt between -30deg and +70deg
@@ -685,7 +945,7 @@
 
             // Generate pipes
             pipeCounter++;
-            if (pipeCounter > 90) {
+            if (pipeCounter > pipeFrequency) {
                 const gapStart = Math.random() * (canvas.height - pipeGap - 50) + 25;
                 pipes.push({
                     x: canvas.width,
@@ -698,11 +958,12 @@
 
             // Update pipes
             pipes.forEach((pipe, index) => {
-                pipe.x -= 3;
+                pipe.x -= pipeSpeed;
 
                 if (!pipe.scored && pipe.x + pipeWidth < bird.x) {
                     pipe.scored = true;
                     game.score++;
+                    addToStreak();
                     document.getElementById('score').textContent = game.score;
                     scoreSound();
                     flashScore();
@@ -765,6 +1026,7 @@
         function endGame() {
             if (game.gameOver) return; // guard against double-trigger
             game.gameOver = true;
+            resetStreak();
             gameOverSound();
 
             const screen = document.getElementById('gameOverScreen');
@@ -784,6 +1046,37 @@
 
             playStartMusic();
         }
+
+        // ─── Difficulty selection ──────────────────────────────────────────
+        function selectDifficulty(difficulty) {
+            game.difficulty = difficulty;
+            const settings = difficultySettings[difficulty];
+
+            // Apply difficulty settings
+            bird.gravity = settings.gravity;
+            bird.lift = settings.lift;
+            pipeSpeed = settings.pipeSpeed;
+            pipeGap = settings.pipeGap;
+            pipeFrequency = settings.pipeFrequency;
+
+            // Hide difficulty selector and show start screen
+            document.getElementById('difficultySelector').style.display = 'none';
+            document.getElementById('startScreen').style.display = 'flex';
+
+            // Highlight selected difficulty
+            document.querySelectorAll('.difficulty-btn').forEach(btn => {
+                btn.classList.remove('selected');
+                if (btn.dataset.difficulty === difficulty) {
+                    btn.classList.add('selected');
+                }
+            });
+        }
+
+        document.querySelectorAll('.difficulty-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                selectDifficulty(btn.dataset.difficulty);
+            });
+        });
 
         // ─── Controls ──────────────────────────────────────────────────────
         document.addEventListener('click', fly);
@@ -808,8 +1101,13 @@
         // ─── Boot ──────────────────────────────────────────────────────────
         gameLoop();
 
+        // Initialize UI
         setTimeout(() => { playStartMusic(); }, 100);
         document.getElementById('highScore').textContent = game.highScore;
+        updateStreakDisplay();
+
+        // Set default difficulty to "normal" on boot
+        selectDifficulty('normal');
     </script>
 </body>
 </html>
