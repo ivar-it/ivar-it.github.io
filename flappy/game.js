@@ -484,6 +484,37 @@
         ];
         const MAX_LEVEL = 20;
 
+        // Level color schemes: Sunset → Dusk → Night → Cosmic Space
+        const LEVEL_COLOR_SCHEMES = {
+            // Levels 1-5: Burning Sunset (Red/Orange)
+            1: { bg: ['#4a1a00', '#3d0a00', '#2d0a00'], pipe: ['#550000', '#8b0000', '#aa1100', '#7a0000'], ground: '#4a1a00', accent: '#ff6b00' },
+            2: { bg: ['#5a2010', '#4a1008', '#3d0a00'], pipe: ['#661100', '#9b1000', '#bb2200', '#8a0800'], ground: '#5a1f10', accent: '#ff7a00' },
+            3: { bg: ['#6a2818', '#5a1810', '#4a0a08'], pipe: ['#772200', '#ab2000', '#cc3300', '#9a1800'], ground: '#6a2818', accent: '#ff8800' },
+            4: { bg: ['#7a3020', '#6a2018', '#5a1010'], pipe: ['#883300', '#bb3000', '#dd4400', '#aa2800'], ground: '#7a2f20', accent: '#ff9600' },
+            5: { bg: ['#8a3828', '#7a2820', '#6a1818'], pipe: ['#994400', '#cc4000', '#ee5500', '#bb3800'], ground: '#8a3828', accent: '#ffa400' },
+
+            // Levels 6-10: Twilight Dusk (Purple/Crimson)
+            6: { bg: ['#6a2040', '#5a1530', '#4a0a20'], pipe: ['#771155', '#bb3388', '#dd55aa', '#aa2277'], ground: '#6a1f40', accent: '#ff55aa' },
+            7: { bg: ['#7a2450', '#6a1840', '#5a0a30'], pipe: ['#882266', '#cc4499', '#ee77bb', '#bb3388'], ground: '#7a2350', accent: '#ff66bb' },
+            8: { bg: ['#8a2860', '#7a1c50', '#6a0a40'], pipe: ['#993377', '#dd55aa', '#ff99cc', '#cc4499'], ground: '#8a2860', accent: '#ff77cc' },
+            9: { bg: ['#7a1848', '#6a0f38', '#5a0028'], pipe: ['#8a1155', '#cc2288', '#ff44bb', '#bb1166'], ground: '#7a1748', accent: '#ff55aa' },
+            10: { bg: ['#6a0f40', '#5a0830', '#4a0020'], pipe: ['#7a0a4d', '#bb1177', '#ee33aa', '#aa0066'], ground: '#6a0e40', accent: '#ff0099' },
+
+            // Levels 11-15: Night Sky (Deep Blue)
+            11: { bg: ['#1a2a4a', '#0a1a3a', '#000a2a'], pipe: ['#1a4477', '#2a66bb', '#4488ee', '#1a5588'], ground: '#0a1a30', accent: '#4488ff' },
+            12: { bg: ['#0a2a5a', '#001a4a', '#000a3a'], pipe: ['#0a4488', '#1a77dd', '#3399ff', '#0a66aa'], ground: '#001a40', accent: '#3399ff' },
+            13: { bg: ['#001a6a', '#000a5a', '#00004a'], pipe: ['#004499', '#1a88ee', '#22aaff', '#006699'], ground: '#000a50', accent: '#22aaff' },
+            14: { bg: ['#0a1a7a', '#000a6a', '#00005a'], pipe: ['#0055aa', '#1a99ff', '#33bbff', '#0077cc'], ground: '#000a60', accent: '#33bbff' },
+            15: { bg: ['#0a0a8a', '#00008a', '#00007a'], pipe: ['#0055bb', '#1aaa11', '#44ccff', '#0088dd'], ground: '#000070', accent: '#44ccff' },
+
+            // Levels 16-20: Cosmic Space (Cyan/Purple/Stars)
+            16: { bg: ['#0a3a8a', '#001a7a', '#00006a'], pipe: ['#00aadd', '#00ddff', '#66ffff', '#00bbee'], ground: '#0a2a6a', accent: '#00ffff' },
+            17: { bg: ['#1a2a9a', '#0a1a8a', '#00007a'], pipe: ['#0099ee', '#00ccff', '#55eeff', '#00aadd'], ground: '#0a1a7a', accent: '#00ffff' },
+            18: { bg: ['#2a1a9a', '#1a0a8a', '#0a007a'], pipe: ['#6600ff', '#9933ff', '#bb66ff', '#8800ff'], ground: '#1a0a6a', accent: '#bb66ff' },
+            19: { bg: ['#3a1aaa', '#2a0a9a', '#1a008a'], pipe: ['#7700ff', '#aa44ff', '#cc88ff', '#9900ff'], ground: '#2a0a7a', accent: '#cc88ff' },
+            20: { bg: ['#4a2abb', '#3a1aaa', '#2a0a9a'], pipe: ['#8844ff', '#bb77ff', '#dd99ff', '#aa55ff'], ground: '#3a1a8a', accent: '#ff00ff' }
+        };
+
         // Which skins unlock at each level (skin key => required level)
         const SKIN_LEVEL_REQUIREMENTS = {
             classic:  1,
@@ -1848,6 +1879,11 @@
 
         // ─── Draw pipes (with 3-D depth effect) ───────────────────────────
         function drawPipes() {
+            // Get current level's color scheme
+            const currentLevel = xpManager.currentLevel;
+            const colors = LEVEL_COLOR_SCHEMES[currentLevel] || LEVEL_COLOR_SCHEMES[1];
+            const pipeColors = colors.pipe;
+
             pipes.forEach(pipe => {
                 const px = pipe.x;
                 const pw = pipeWidth;
@@ -1855,20 +1891,20 @@
                 // ── Top pipe ──────────────────────────────────────────────
                 // Main body — side-lit gradient for 3-D look
                 const topGrad = ctx.createLinearGradient(px, 0, px + pw, 0);
-                topGrad.addColorStop(0,   '#550000');
-                topGrad.addColorStop(0.15,'#8b0000');
-                topGrad.addColorStop(0.45,'#aa1100');
-                topGrad.addColorStop(0.7, '#7a0000');
-                topGrad.addColorStop(1,   '#440000');
+                topGrad.addColorStop(0,    pipeColors[0]);
+                topGrad.addColorStop(0.15, pipeColors[1]);
+                topGrad.addColorStop(0.45, pipeColors[2]);
+                topGrad.addColorStop(0.7,  pipeColors[3]);
+                topGrad.addColorStop(1,    pipeColors[0]);
                 ctx.fillStyle = topGrad;
                 ctx.fillRect(px, 0, pw, pipe.top - 8);
 
                 // Vertical highlight stripe
-                ctx.fillStyle = 'rgba(255,80,0,0.12)';
+                ctx.fillStyle = 'rgba(255,200,100,0.12)';
                 ctx.fillRect(px + pw * 0.25, 0, pw * 0.2, pipe.top - 8);
 
                 // Rivet marks every ~40px
-                ctx.fillStyle = 'rgba(255,60,0,0.25)';
+                ctx.fillStyle = 'rgba(255,150,100,0.25)';
                 for (let ry = 30; ry < pipe.top - 16; ry += 40) {
                     ctx.beginPath();
                     ctx.arc(px + pw * 0.25, ry, 2.5, 0, Math.PI * 2);
@@ -1877,10 +1913,10 @@
                 }
 
                 // Rim cap
-                ctx.fillStyle = '#cc2200';
+                ctx.fillStyle = pipeColors[2];
                 ctx.fillRect(px - 4, pipe.top - 12, pw + 8, 12);
                 // Rim bevel top edge
-                ctx.fillStyle = '#ff6b00';
+                ctx.fillStyle = colors.accent;
                 ctx.fillRect(px - 4, pipe.top - 12, pw + 8, 3);
                 // Rim inner shadow
                 ctx.fillStyle = 'rgba(0,0,0,0.4)';
@@ -1888,11 +1924,11 @@
 
                 // ── Bottom pipe ───────────────────────────────────────────
                 const botGrad = ctx.createLinearGradient(px, pipe.bottom, px + pw, pipe.bottom);
-                botGrad.addColorStop(0,   '#550000');
-                botGrad.addColorStop(0.15,'#8b0000');
-                botGrad.addColorStop(0.45,'#aa1100');
-                botGrad.addColorStop(0.7, '#7a0000');
-                botGrad.addColorStop(1,   '#440000');
+                botGrad.addColorStop(0,    pipeColors[0]);
+                botGrad.addColorStop(0.15, pipeColors[1]);
+                botGrad.addColorStop(0.45, pipeColors[2]);
+                botGrad.addColorStop(0.7,  pipeColors[3]);
+                botGrad.addColorStop(1,    pipeColors[0]);
                 ctx.fillStyle = botGrad;
                 ctx.fillRect(px, pipe.bottom + 12, pw, canvas.height - pipe.bottom);
 
@@ -1923,15 +1959,19 @@
 
         // ─── Draw background ───────────────────────────────────────────────
         function drawBackground() {
+            // Get current level's color scheme
+            const currentLevel = xpManager.currentLevel;
+            const colors = LEVEL_COLOR_SCHEMES[currentLevel] || LEVEL_COLOR_SCHEMES[1];
+
             const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            skyGradient.addColorStop(0, '#3d0a00');
-            skyGradient.addColorStop(0.5, '#2d0a00');
-            skyGradient.addColorStop(1, '#1a0000');
+            skyGradient.addColorStop(0, colors.bg[0]);
+            skyGradient.addColorStop(0.5, colors.bg[1]);
+            skyGradient.addColorStop(1, colors.bg[2]);
             ctx.fillStyle = skyGradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             const groundY = canvas.height * 0.85;
-            ctx.fillStyle = '#4a1a00';
+            ctx.fillStyle = colors.ground;
             ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
 
             ctx.strokeStyle = 'rgba(255, 107, 0, 0.2)';
