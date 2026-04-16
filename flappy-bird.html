@@ -154,9 +154,10 @@
         };
 
         const pipes = [];
-        const pipeGap = 160;
+        const pipeGap = 210;
         const pipeWidth = 50;
         let pipeCounter = 0;
+        const version = '1.1';
 
         // Draw bird
         function drawBird() {
@@ -260,6 +261,11 @@
             drawBackground();
             drawPipes();
             drawBird();
+
+            // Version text
+            ctx.fillStyle = '#ff6b00';
+            ctx.font = '14px Arial';
+            ctx.fillText('v' + version, 10, 25);
         }
 
         // Game loop
