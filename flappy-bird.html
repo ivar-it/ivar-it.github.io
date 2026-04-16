@@ -354,6 +354,82 @@
         .combo-popup.disappear {
             animation: comboPopupDisappear 0.3s ease-in forwards;
         }
+
+        .power-up-display {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .power-up-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 2px solid;
+            font-size: 14px;
+            font-weight: bold;
+            text-shadow: 0 0 8px rgba(255, 200, 0, 0.5);
+            animation: powerUpBounce 0.3s ease-out;
+        }
+
+        .power-up-item.shield {
+            border-color: #4da6ff;
+            color: #4da6ff;
+            text-shadow: 0 0 12px rgba(77, 166, 255, 0.8);
+        }
+
+        .power-up-item.slowmo {
+            border-color: #ffff00;
+            color: #ffff00;
+            text-shadow: 0 0 12px rgba(255, 255, 0, 0.8);
+        }
+
+        .power-up-item.doublepoints {
+            border-color: #ffd700;
+            color: #ffd700;
+            text-shadow: 0 0 12px rgba(255, 215, 0, 0.8);
+        }
+
+        .power-up-item.expiring {
+            animation: powerUpFlash 0.5s infinite;
+        }
+
+        @keyframes powerUpBounce {
+            0% {
+                opacity: 0;
+                transform: scale(0.5) translateX(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateX(0);
+            }
+        }
+
+        @keyframes powerUpFlash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .multiplier-display {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            color: #ffd700;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+            z-index: 10;
+            pointer-events: none;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -365,6 +441,8 @@
             <div class="streak-label">STREAK</div>
             <div id="streakCount">0</div>
         </div>
+        <div class="power-up-display" id="powerUpDisplay"></div>
+        <div class="multiplier-display" id="multiplierDisplay">SCORE x<span id="multiplier">1</span></div>
         <canvas id="gameCanvas"></canvas>
         <div class="game-over" id="gameOverScreen">
             <h1>&#9760;&#65039; GAME OVER &#9760;&#65039;</h1>
@@ -457,6 +535,36 @@
             }
         };
 
+        // ─── Power-up system ──────────────────────────────────────────────
+        const powerUps = [];
+        let basePipeSpeed = 3;
+        let baseGravity = 0.35;
+        let pointMultiplier = 1;
+
+        const powerUpTypes = {
+            shield: {
+                color: '#4da6ff',
+                icon: 'shield',
+                duration: Infinity,
+                effect: 'Survive 1 collision',
+                glowColor: 'rgba(77, 166, 255, 0.4)'
+            },
+            slowmo: {
+                color: '#ffff00',
+                icon: 'hourglass',
+                duration: 8000,
+                effect: 'Slow pipes & gravity',
+                glowColor: 'rgba(255, 255, 0, 0.3)'
+            },
+            doublepoints: {
+                color: '#ffd700',
+                icon: 'star',
+                duration: 15000,
+                effect: 'Score x2',
+                glowColor: 'rgba(255, 215, 0, 0.3)'
+            }
+        };
+
         // Game objects
         const game = {
             score: 0,
@@ -465,7 +573,12 @@
             started: false,
             difficulty: 'normal',
             streak: 0,
-            maxStreak: localStorage.getItem('flappyBirdMaxStreak') || 0
+            maxStreak: localStorage.getItem('flappyBirdMaxStreak') || 0,
+            activePowerUps: {
+                shield: null,
+                slowmo: null,
+                doublepoints: null
+            }
         };
 
         const bird = {
@@ -485,7 +598,7 @@
         let pipeCounter = 0;
         let pipeSpeed = 3;
         let pipeFrequency = 90;
-        const version = '0.3.1';
+        const version = '0.4.0';
         let scrollOffset = 0;
 
         // ─── Particle system ───────────────────────────────────────────────
@@ -625,6 +738,16 @@
             playSound(200, 0.5);
         }
 
+        function collectPowerUpSound() {
+            playSound(1200, 0.08);
+            setTimeout(() => playSound(1400, 0.08), 50);
+        }
+
+        function shieldBlockSound() {
+            playSound(600, 0.2);
+            setTimeout(() => playSound(800, 0.2), 100);
+        }
+
         let musicPlaying = false;
         let musicTimeoutId = null;
 
@@ -754,6 +877,261 @@
             updateStreakDisplay();
         }
 
+        // ─── Power-up management ──────────────────────────────────────────
+        function spawnPowerUp(x, y) {
+            const types = ['shield', 'slowmo', 'doublepoints'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            powerUps.push({
+                x: x,
+                y: y,
+                type: type,
+                collected: false,
+                spawnTime: Date.now(),
+                lifetime: 15000, // 15 seconds before disappear
+                rotation: 0
+            });
+        }
+
+        function activatePowerUp(type) {
+            const now = Date.now();
+            game.activePowerUps[type] = {
+                startTime: now,
+                duration: powerUpTypes[type].duration
+            };
+
+            if (type === 'shield') {
+                // Shield shows visual indicator on bird
+            } else if (type === 'slowmo') {
+                // Apply slow-mo effect
+                bird.gravity = baseGravity * 0.5;
+                pipeSpeed = basePipeSpeed * 0.5;
+            } else if (type === 'doublepoints') {
+                pointMultiplier = 2;
+                updateMultiplierDisplay();
+            }
+
+            collectPowerUpSound();
+            updatePowerUpDisplay();
+        }
+
+        function deactivatePowerUp(type) {
+            if (type === 'slowmo') {
+                bird.gravity = baseGravity;
+                pipeSpeed = basePipeSpeed;
+            } else if (type === 'doublepoints') {
+                pointMultiplier = 1;
+                updateMultiplierDisplay();
+            }
+            game.activePowerUps[type] = null;
+            updatePowerUpDisplay();
+        }
+
+        function updatePowerUpDisplay() {
+            const display = document.getElementById('powerUpDisplay');
+            display.innerHTML = '';
+
+            Object.keys(game.activePowerUps).forEach(type => {
+                const active = game.activePowerUps[type];
+                if (!active) return;
+
+                const element = document.createElement('div');
+                element.className = `power-up-item ${type}`;
+
+                let timeRemaining = 'ACTIVE';
+                if (active.duration !== Infinity) {
+                    const elapsed = Date.now() - active.startTime;
+                    const remaining = Math.ceil((active.duration - elapsed) / 1000);
+                    timeRemaining = `${remaining}s`;
+
+                    // Flash when about to expire (< 3 seconds)
+                    if (remaining <= 3 && remaining > 0) {
+                        element.classList.add('expiring');
+                    }
+                }
+
+                const icon = getIconSymbol(type);
+                element.textContent = `${icon} ${powerUpTypes[type].effect} - ${timeRemaining}`;
+                display.appendChild(element);
+            });
+        }
+
+        function updateMultiplierDisplay() {
+            const display = document.getElementById('multiplierDisplay');
+            const multiplier = document.getElementById('multiplier');
+            if (pointMultiplier > 1) {
+                display.style.display = 'block';
+                multiplier.textContent = pointMultiplier;
+            } else {
+                display.style.display = 'none';
+            }
+        }
+
+        function getIconSymbol(type) {
+            switch (type) {
+                case 'shield': return '🛡️';
+                case 'slowmo': return '⏳';
+                case 'doublepoints': return '⭐';
+                default: return '✨';
+            }
+        }
+
+        function updateActivePowerUps() {
+            const now = Date.now();
+
+            Object.keys(game.activePowerUps).forEach(type => {
+                const active = game.activePowerUps[type];
+                if (!active) return;
+
+                // Check if duration expired (but not shield, which is Infinity)
+                if (active.duration !== Infinity) {
+                    const elapsed = now - active.startTime;
+                    if (elapsed >= active.duration) {
+                        deactivatePowerUp(type);
+                    }
+                }
+            });
+
+            updatePowerUpDisplay();
+        }
+
+        function spawnPowerUpParticles(x, y, type) {
+            const count = 12;
+            const color = powerUpTypes[type].color;
+            for (let i = 0; i < count; i++) {
+                const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.6;
+                const speed = 2 + Math.random() * 3;
+                particles.push({
+                    x,
+                    y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 1,
+                    life: 1.0,
+                    decay: 0.03 + Math.random() * 0.02,
+                    radius: 2 + Math.random() * 3,
+                    color: color
+                });
+            }
+        }
+
+        // ─── Draw power-ups ────────────────────────────────────────────────
+        function drawPowerUps() {
+            powerUps.forEach((pu, index) => {
+                if (pu.collected) return;
+
+                const elapsed = Date.now() - pu.spawnTime;
+                const alpha = elapsed < pu.lifetime * 0.7 ? 1.0 : 0.3 + (1 - (elapsed / pu.lifetime)) * 0.7;
+
+                if (alpha <= 0.1) return;
+
+                pu.rotation += 0.08;
+                const size = 75;
+
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.translate(pu.x, pu.y);
+                ctx.rotate(pu.rotation);
+
+                // Glow effect
+                const glowColor = powerUpTypes[pu.type].glowColor;
+                const glowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 0.8);
+                glowGrad.addColorStop(0, glowColor);
+                glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                ctx.fillStyle = glowGrad;
+                ctx.beginPath();
+                ctx.arc(0, 0, size * 0.8, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw power-up icon based on type
+                if (pu.type === 'shield') {
+                    drawShieldIcon(0, 0, size * 0.5);
+                } else if (pu.type === 'slowmo') {
+                    drawHourglassIcon(0, 0, size * 0.5);
+                } else if (pu.type === 'doublepoints') {
+                    drawStarIcon(0, 0, size * 0.5);
+                }
+
+                ctx.restore();
+            });
+        }
+
+        function drawShieldIcon(x, y, size) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.strokeStyle = '#4da6ff';
+            ctx.fillStyle = 'rgba(77, 166, 255, 0.3)';
+            ctx.lineWidth = 3;
+
+            // Shield shape
+            ctx.beginPath();
+            ctx.moveTo(-size * 0.3, -size * 0.5);
+            ctx.lineTo(size * 0.3, -size * 0.5);
+            ctx.lineTo(size * 0.35, size * 0.2);
+            ctx.bezierCurveTo(size * 0.3, size * 0.4, 0, size * 0.5, -size * 0.35, size * 0.2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawHourglassIcon(x, y, size) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.strokeStyle = '#ffff00';
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
+            ctx.lineWidth = 3;
+
+            // Top bulb
+            ctx.beginPath();
+            ctx.arc(0, -size * 0.3, size * 0.25, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Bottom bulb
+            ctx.beginPath();
+            ctx.arc(0, size * 0.3, size * 0.25, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Center neck
+            ctx.beginPath();
+            ctx.moveTo(-size * 0.08, -size * 0.05);
+            ctx.lineTo(size * 0.08, size * 0.05);
+            ctx.moveTo(size * 0.08, -size * 0.05);
+            ctx.lineTo(-size * 0.08, size * 0.05);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawStarIcon(x, y, size) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.fillStyle = '#ffd700';
+            ctx.strokeStyle = '#ffff99';
+            ctx.lineWidth = 2;
+
+            // Draw 5-pointed star
+            const points = 5;
+            const outerRadius = size * 0.5;
+            const innerRadius = size * 0.22;
+
+            ctx.beginPath();
+            for (let i = 0; i < points * 2; i++) {
+                const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                const angle = (i * Math.PI) / points - Math.PI / 2;
+                const px = Math.cos(angle) * radius;
+                const py = Math.sin(angle) * radius;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
         // ─── Draw bird (with rotation) ─────────────────────────────────────
         function drawBird() {
             // Target rotation: clamp velocity-based tilt between -30deg and +70deg
@@ -809,6 +1187,25 @@
             ctx.beginPath();
             ctx.arc(7, -6, 1.5, 0, Math.PI * 2);
             ctx.fill();
+
+            // Shield overlay if active
+            if (game.activePowerUps.shield) {
+                ctx.globalAlpha = 0.6;
+                const shieldGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, bird.radius * 2.2);
+                shieldGrad.addColorStop(0, 'rgba(77, 166, 255, 0.4)');
+                shieldGrad.addColorStop(1, 'rgba(77, 166, 255, 0)');
+                ctx.fillStyle = shieldGrad;
+                ctx.beginPath();
+                ctx.arc(0, 0, bird.radius * 2.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.globalAlpha = 1;
+                ctx.strokeStyle = '#4da6ff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(0, 0, bird.radius * 1.5, 0, Math.PI * 2);
+                ctx.stroke();
+            }
 
             ctx.restore();
         }
@@ -939,20 +1336,29 @@
             bird.velocity += bird.gravity;
             bird.y += bird.velocity;
 
-            // Update rings & particles
+            // Update rings & particles & power-ups
             updateJumpRings();
             updateParticles();
+            updateActivePowerUps();
 
             // Generate pipes
             pipeCounter++;
             if (pipeCounter > pipeFrequency) {
                 const gapStart = Math.random() * (canvas.height - pipeGap - 50) + 25;
-                pipes.push({
+                const pipe = {
                     x: canvas.width,
                     top: gapStart,
                     bottom: gapStart + pipeGap,
                     scored: false
-                });
+                };
+                pipes.push(pipe);
+
+                // Spawn power-up in the gap with rare chance (5-10%)
+                if (Math.random() < 0.075) {
+                    const powerUpY = gapStart + pipeGap / 2;
+                    spawnPowerUp(canvas.width, powerUpY);
+                }
+
                 pipeCounter = 0;
             }
 
@@ -962,7 +1368,7 @@
 
                 if (!pipe.scored && pipe.x + pipeWidth < bird.x) {
                     pipe.scored = true;
-                    game.score++;
+                    game.score += pointMultiplier;
                     addToStreak();
                     document.getElementById('score').textContent = game.score;
                     scoreSound();
@@ -974,6 +1380,30 @@
                 }
 
                 if (pipe.x + pipeWidth < 0) pipes.splice(index, 1);
+            });
+
+            // Update power-ups
+            powerUps.forEach((pu, index) => {
+                pu.x -= pipeSpeed;
+                const elapsed = Date.now() - pu.spawnTime;
+
+                if (elapsed > pu.lifetime) {
+                    powerUps.splice(index, 1);
+                    return;
+                }
+
+                // Check proximity to bird for collection (no collision needed)
+                const dx = pu.x - bird.x;
+                const dy = pu.y - bird.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < bird.radius + 40 && !pu.collected) {
+                    pu.collected = true;
+                    spawnPowerUpParticles(pu.x, pu.y, pu.type);
+                    activatePowerUp(pu.type);
+                }
+
+                if (pu.x + 50 < 0) powerUps.splice(index, 1);
             });
 
             // Boundary collision
@@ -990,6 +1420,16 @@
                     (bird.y - bird.radius < pipe.top || bird.y + bird.radius > pipe.bottom)
                 ) {
                     triggerShake(9, 20);
+
+                    // Check if shield is active
+                    if (game.activePowerUps.shield) {
+                        shieldBlockSound();
+                        spawnPowerUpParticles(bird.x, bird.y, 'shield');
+                        deactivatePowerUp('shield');
+                        // Don't end game, just trigger visual feedback
+                        return;
+                    }
+
                     endGame();
                 }
             });
@@ -1005,6 +1445,7 @@
             drawBackground();
             drawParticles();
             drawPipes();
+            drawPowerUps();
             drawJumpRings();
             drawBird();
 
@@ -1027,6 +1468,19 @@
             if (game.gameOver) return; // guard against double-trigger
             game.gameOver = true;
             resetStreak();
+
+            // Reset all active power-ups
+            Object.keys(game.activePowerUps).forEach(type => {
+                if (game.activePowerUps[type]) {
+                    deactivatePowerUp(type);
+                }
+            });
+
+            // Clear power-ups array
+            powerUps.length = 0;
+            pointMultiplier = 1;
+            updateMultiplierDisplay();
+
             gameOverSound();
 
             const screen = document.getElementById('gameOverScreen');
@@ -1054,8 +1508,10 @@
 
             // Apply difficulty settings
             bird.gravity = settings.gravity;
+            baseGravity = settings.gravity;
             bird.lift = settings.lift;
             pipeSpeed = settings.pipeSpeed;
+            basePipeSpeed = settings.pipeSpeed;
             pipeGap = settings.pipeGap;
             pipeFrequency = settings.pipeFrequency;
 
