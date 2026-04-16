@@ -429,10 +429,86 @@
             pointer-events: none;
             display: none;
         }
+
+        /* ─── Sound toggle button ────────────────────────────────────────── */
+        .sound-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 107, 0, 0.2);
+            border: 2px solid #ff6b00;
+            border-radius: 8px;
+            color: #ff6b00;
+            font-size: 28px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            z-index: 11;
+            user-select: none;
+            padding: 0;
+        }
+
+        .sound-toggle:hover {
+            background: rgba(255, 107, 0, 0.4);
+            transform: scale(1.1);
+        }
+
+        .sound-toggle:active {
+            transform: scale(0.95);
+        }
+
+        .sound-toggle.muted {
+            opacity: 0.5;
+        }
+
+        /* ─── Difficulty tooltips ───────────────────────────────────────── */
+        .difficulty-tooltip {
+            position: absolute;
+            bottom: -70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.95);
+            color: #ffaa00;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            border: 1px solid #ff6b00;
+            z-index: 100;
+        }
+
+        .difficulty-btn:hover .difficulty-tooltip {
+            opacity: 1;
+        }
+
+        /* ─── Touch feedback ripple ──────────────────────────────────────── */
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 107, 0, 0.6);
+            transform: scale(0);
+            animation: rippleAnimation 0.6s ease-out forwards;
+            pointer-events: none;
+        }
+
+        @keyframes rippleAnimation {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container" id="gameContainer">
+        <button class="sound-toggle" id="soundToggle" title="Toggle sound" aria-label="Toggle sound">🔊</button>
         <div class="ui">
             <div class="score" id="scoreDisplay">Score: <span id="score">0</span></div>
         </div>
@@ -469,18 +545,22 @@
                 <button class="difficulty-btn" data-difficulty="easy">
                     Easy
                     <div class="difficulty-desc">Slow pipes, relaxed</div>
+                    <div class="difficulty-tooltip">Gap: 250px | Speed: 2 | Gravity: 0.25</div>
                 </button>
                 <button class="difficulty-btn" data-difficulty="normal">
                     Normal
                     <div class="difficulty-desc">Classic Flappy challenge</div>
+                    <div class="difficulty-tooltip">Gap: 210px | Speed: 3 | Gravity: 0.35</div>
                 </button>
                 <button class="difficulty-btn" data-difficulty="hard">
                     Hard
                     <div class="difficulty-desc">Fast pipes, tight gaps</div>
+                    <div class="difficulty-tooltip">Gap: 180px | Speed: 4 | Gravity: 0.42</div>
                 </button>
                 <button class="difficulty-btn" data-difficulty="insane">
                     Insane
                     <div class="difficulty-desc">Max chaos, fast gaps</div>
+                    <div class="difficulty-tooltip">Gap: 150px | Speed: 5 | Gravity: 0.5</div>
                 </button>
             </div>
         </div>
@@ -585,7 +665,8 @@
                 doublepoints: null
             },
             invulnerable: false,
-            invulnerabilityTimer: 0
+            invulnerabilityTimer: 0,
+            soundEnabled: localStorage.getItem('flappyBirdSoundEnabled') !== 'false' ? true : false
         };
 
         const bird = {
@@ -605,7 +686,24 @@
         let pipeCounter = 0;
         let pipeSpeed = 3;
         let pipeFrequency = 90;
-        const version = '0.4.1';
+        const version = '0.4.2';
+
+        // ─── Death sequence state ──────────────────────────────────────────
+        const deathSequence = {
+            active: false,
+            startTime: 0,
+            duration: 800, // 0.8 seconds total death animation
+            birdRotation: 0,
+            slowMotionFactor: 1.0, // 1.0 = normal, 0.3 = slow-mo
+            screenTint: 0,
+            screenTintTarget: 0,
+            screenTintSpeed: 0.025,
+            deadTextAlpha: 0,
+            deadTextScale: 0,
+            collisionX: 0,
+            collisionY: 0,
+            showDeadText: false
+        };
         let scrollOffset = 0;
 
         // ─── Stats tracking system ─────────────────────────────────────────
@@ -880,6 +978,8 @@
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
         function playSound(freq, duration, type = 'sine') {
+            if (!game.soundEnabled) return;
+
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.connect(gain);
@@ -935,6 +1035,11 @@
         let musicTimeoutId = null;
 
         function playMelodySequence() {
+            if (!game.soundEnabled) {
+                musicPlaying = false;
+                return;
+            }
+
             const melody = [
                 { freq: 110, duration: 0.35 },
                 { freq: 130, duration: 0.35 },
@@ -958,16 +1063,16 @@
 
             let delay = 0;
             melody.forEach(note => {
-                if (musicPlaying) {
+                if (musicPlaying && game.soundEnabled) {
                     setTimeout(() => {
-                        if (musicPlaying) playSound(note.freq, note.duration * 0.8, 'sawtooth');
+                        if (musicPlaying && game.soundEnabled) playSound(note.freq, note.duration * 0.8, 'sawtooth');
                     }, delay * 1000);
                 }
                 delay += note.duration + 0.05;
             });
 
             musicTimeoutId = setTimeout(() => {
-                if (musicPlaying) playMelodySequence();
+                if (musicPlaying && game.soundEnabled) playMelodySequence();
             }, 8500);
         }
 
@@ -1878,11 +1983,65 @@
             });
         });
 
+        // ─── Sound toggle ──────────────────────────────────────────────────
+        function toggleSound() {
+            game.soundEnabled = !game.soundEnabled;
+            localStorage.setItem('flappyBirdSoundEnabled', game.soundEnabled);
+            updateSoundButtonUI();
+        }
+
+        function updateSoundButtonUI() {
+            const btn = document.getElementById('soundToggle');
+            btn.textContent = game.soundEnabled ? '🔊' : '🔇';
+            btn.classList.toggle('muted', !game.soundEnabled);
+        }
+
+        document.getElementById('soundToggle').addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleSound();
+        });
+
+        // ─── Touch feedback ripple ──────────────────────────────────────
+        function createRipple(event) {
+            const button = event.target.closest('.difficulty-btn');
+            if (!button) return;
+
+            const rect = button.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            const x = event.clientX - rect.left - size / 2;
+            const y = event.clientY - rect.top - size / 2;
+
+            const ripple = document.createElement('span');
+            ripple.className = 'ripple';
+            ripple.style.width = ripple.style.height = size + 'px';
+            ripple.style.left = x + 'px';
+            ripple.style.top = y + 'px';
+
+            button.appendChild(ripple);
+
+            setTimeout(() => ripple.remove(), 600);
+        }
+
+        document.addEventListener('click', createRipple);
+
         // ─── Controls ──────────────────────────────────────────────────────
         document.addEventListener('click', fly);
-        document.addEventListener('touchstart', fly);
+        document.addEventListener('touchstart', fly, { passive: false });
+
+        let lastTapTime = 0;
+        const tapDebounceDelay = 100;
 
         function fly(e) {
+            if (e.target.closest('.sound-toggle') || e.target.closest('.difficulty-btn')) {
+                return;
+            }
+
+            const now = Date.now();
+            if (now - lastTapTime < tapDebounceDelay) {
+                return;
+            }
+            lastTapTime = now;
+
             e.preventDefault();
 
             if (game.gameOver) {
@@ -1894,7 +2053,30 @@
                 bird.velocity = bird.lift;
                 jumpSound();
                 spawnJumpRing();
+
+                // Visual tap feedback on mobile
+                if (e.touches) {
+                    const touch = e.touches[0];
+                    createTapFeedback(touch.clientX, touch.clientY);
+                }
             }
+        }
+
+        function createTapFeedback(x, y) {
+            const feedback = document.createElement('div');
+            feedback.style.position = 'fixed';
+            feedback.style.left = (x - 15) + 'px';
+            feedback.style.top = (y - 15) + 'px';
+            feedback.style.width = '30px';
+            feedback.style.height = '30px';
+            feedback.style.borderRadius = '50%';
+            feedback.style.background = 'rgba(255, 107, 0, 0.5)';
+            feedback.style.pointerEvents = 'none';
+            feedback.style.zIndex = '999';
+            feedback.style.animation = 'rippleAnimation 0.6s ease-out forwards';
+            document.body.appendChild(feedback);
+
+            setTimeout(() => feedback.remove(), 600);
         }
 
         // ─── Boot ──────────────────────────────────────────────────────────
@@ -1904,6 +2086,7 @@
         setTimeout(() => { playStartMusic(); }, 100);
         document.getElementById('highScore').textContent = game.highScore;
         updateStreakDisplay();
+        updateSoundButtonUI();
         // Difficulty selector shown on page load for user to choose
     </script>
 </body>
