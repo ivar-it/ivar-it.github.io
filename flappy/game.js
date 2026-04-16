@@ -1054,15 +1054,15 @@
 
         // Audio file mapping
         const audioFiles = {
-            jump: 'jump.mp3',
-            score: 'score.mp3',
-            gameOver: 'game-over.mp3',
-            powerUp: 'power-up.mp3',
-            shield: 'shield.mp3',
-            powBomb: 'pow-bomb.mp3',
-            menuMusic: 'menu-music.mp3',
-            levelUp: 'levelup.mp3',
-            startHint: 'start-hint.mp3'
+            jump: 'sounds/jump.mp3',
+            score: 'sounds/score.mp3',
+            gameOver: 'sounds/game-over.mp3',
+            powerUp: 'sounds/power-up.mp3',
+            shield: 'sounds/shield.mp3',
+            powBomb: 'sounds/pow-bomb.mp3',
+            menuMusic: 'sounds/menu-music.mp3',
+            levelUp: 'sounds/levelup.mp3',
+            startHint: 'sounds/start-hint.mp3'
         };
 
         // Load an audio file and decode it
@@ -1714,11 +1714,6 @@
 
             // Draw the selected skin
             const selectedSkin = birdSkins[game.selectedSkin] || birdSkins.classic;
-            if (!window.skinDrawDebugLogged) {
-                console.log('[DRAWBIRD] game.selectedSkin:', game.selectedSkin, 'Drawing skin:', selectedSkin);
-                window.skinDrawDebugLogged = true;
-                setTimeout(() => { window.skinDrawDebugLogged = false; }, 1000);
-            }
             selectedSkin.draw();
 
             // Eye with blink and width modulation (applies to all skins)
