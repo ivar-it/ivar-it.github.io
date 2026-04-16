@@ -486,33 +486,33 @@
 
         // Level color schemes: Sunset → Dusk → Night → Cosmic Space
         const LEVEL_COLOR_SCHEMES = {
-            // Levels 1-5: Burning Sunset (Red/Orange)
-            1: { bg: ['#4a1a00', '#3d0a00', '#2d0a00'], pipe: ['#550000', '#8b0000', '#aa1100', '#7a0000'], ground: '#4a1a00', accent: '#ff6b00' },
-            2: { bg: ['#5a2010', '#4a1008', '#3d0a00'], pipe: ['#661100', '#9b1000', '#bb2200', '#8a0800'], ground: '#5a1f10', accent: '#ff7a00' },
-            3: { bg: ['#6a2818', '#5a1810', '#4a0a08'], pipe: ['#772200', '#ab2000', '#cc3300', '#9a1800'], ground: '#6a2818', accent: '#ff8800' },
-            4: { bg: ['#7a3020', '#6a2018', '#5a1010'], pipe: ['#883300', '#bb3000', '#dd4400', '#aa2800'], ground: '#7a2f20', accent: '#ff9600' },
-            5: { bg: ['#8a3828', '#7a2820', '#6a1818'], pipe: ['#994400', '#cc4000', '#ee5500', '#bb3800'], ground: '#8a3828', accent: '#ffa400' },
+            // Levels 1-5: Burning Sunset (Deep Red → Bright Orange)
+            1: { bg: ['#8b0000', '#660000', '#330000'], pipe: ['#cc0000', '#ff0000', '#ff3300', '#dd0000'], ground: '#660000', accent: '#ff4500' },
+            2: { bg: ['#b83800', '#8b2400', '#661800'], pipe: ['#e64500', '#ff5500', '#ff7700', '#ff4400'], ground: '#8b2400', accent: '#ff6400' },
+            3: { bg: ['#d97000', '#cc5500', '#aa3300'], pipe: ['#ff6600', '#ff8800', '#ffaa00', '#ff7700'], ground: '#cc5500', accent: '#ff8c00' },
+            4: { bg: ['#f5a000', '#e68800', '#cc6600'], pipe: ['#ff8800', '#ffaa00', '#ffcc00', '#ff9900'], ground: '#e68800', accent: '#ffa500' },
+            5: { bg: ['#ffd700', '#ffcc00', '#ffaa00'], pipe: ['#ffaa00', '#ffdd00', '#ffff00', '#ffbb00'], ground: '#ffcc00', accent: '#ffed4e' },
 
-            // Levels 6-10: Twilight Dusk (Purple/Crimson)
-            6: { bg: ['#6a2040', '#5a1530', '#4a0a20'], pipe: ['#771155', '#bb3388', '#dd55aa', '#aa2277'], ground: '#6a1f40', accent: '#ff55aa' },
-            7: { bg: ['#7a2450', '#6a1840', '#5a0a30'], pipe: ['#882266', '#cc4499', '#ee77bb', '#bb3388'], ground: '#7a2350', accent: '#ff66bb' },
-            8: { bg: ['#8a2860', '#7a1c50', '#6a0a40'], pipe: ['#993377', '#dd55aa', '#ff99cc', '#cc4499'], ground: '#8a2860', accent: '#ff77cc' },
-            9: { bg: ['#7a1848', '#6a0f38', '#5a0028'], pipe: ['#8a1155', '#cc2288', '#ff44bb', '#bb1166'], ground: '#7a1748', accent: '#ff55aa' },
-            10: { bg: ['#6a0f40', '#5a0830', '#4a0020'], pipe: ['#7a0a4d', '#bb1177', '#ee33aa', '#aa0066'], ground: '#6a0e40', accent: '#ff0099' },
+            // Levels 6-10: Twilight Dusk (Purple → Magenta → Hot Pink)
+            6: { bg: ['#4b0082', '#3d0066', '#2a0052'], pipe: ['#7700bb', '#9933ff', '#bb55ff', '#9900dd'], ground: '#3d0066', accent: '#bb33ff' },
+            7: { bg: ['#8b008b', '#6b006b', '#4b004b'], pipe: ['#bb00bb', '#dd00ff', '#ff66ff', '#dd00dd'], ground: '#6b006b', accent: '#ff00ff' },
+            8: { bg: ['#c71585', '#a01370', '#7a0d5a'], pipe: ['#e91e63', '#ff1493', '#ff77dd', '#ff3388'], ground: '#a01370', accent: '#ff1493' },
+            9: { bg: ['#dc143c', '#cc1133', '#bb0022'], pipe: ['#ff1a4d', '#ff3366', '#ff6699', '#ff2255'], ground: '#cc1133', accent: '#ff2252' },
+            10: { bg: ['#ff1493', '#ff0080', '#dd0066'], pipe: ['#ff3388', '#ff66bb', '#ff99dd', '#ff4499'], ground: '#ff0080', accent: '#ff66ff' },
 
-            // Levels 11-15: Night Sky (Deep Blue)
-            11: { bg: ['#1a2a4a', '#0a1a3a', '#000a2a'], pipe: ['#1a4477', '#2a66bb', '#4488ee', '#1a5588'], ground: '#0a1a30', accent: '#4488ff' },
-            12: { bg: ['#0a2a5a', '#001a4a', '#000a3a'], pipe: ['#0a4488', '#1a77dd', '#3399ff', '#0a66aa'], ground: '#001a40', accent: '#3399ff' },
-            13: { bg: ['#001a6a', '#000a5a', '#00004a'], pipe: ['#004499', '#1a88ee', '#22aaff', '#006699'], ground: '#000a50', accent: '#22aaff' },
-            14: { bg: ['#0a1a7a', '#000a6a', '#00005a'], pipe: ['#0055aa', '#1a99ff', '#33bbff', '#0077cc'], ground: '#000a60', accent: '#33bbff' },
-            15: { bg: ['#0a0a8a', '#00008a', '#00007a'], pipe: ['#0055bb', '#1aaa11', '#44ccff', '#0088dd'], ground: '#000070', accent: '#44ccff' },
+            // Levels 11-15: Night Sky (Deep Blue → Navy → Bright Blue)
+            11: { bg: ['#000080', '#000066', '#000044'], pipe: ['#0000cc', '#0033ff', '#3366ff', '#0011dd'], ground: '#000055', accent: '#0033ff' },
+            12: { bg: ['#000099', '#000077', '#000055'], pipe: ['#0011ee', '#0044ff', '#3377ff', '#0022ee'], ground: '#000066', accent: '#0055ff' },
+            13: { bg: ['#0000cd', '#0000aa', '#000088'], pipe: ['#0022ff', '#0055ff', '#3388ff', '#0033ff'], ground: '#000077', accent: '#0077ff' },
+            14: { bg: ['#4169e1', '#3050c0', '#1f3a8a'], pipe: ['#4488ff', '#66aaff', '#88ccff', '#5599ff'], ground: '#2050a0', accent: '#66aaff' },
+            15: { bg: ['#0000ff', '#0000dd', '#0000bb'], pipe: ['#3366ff', '#5588ff', '#77aaff', '#4477ff'], ground: '#0000cc', accent: '#88bbff' },
 
-            // Levels 16-20: Cosmic Space (Cyan/Purple/Stars)
-            16: { bg: ['#0a3a8a', '#001a7a', '#00006a'], pipe: ['#00aadd', '#00ddff', '#66ffff', '#00bbee'], ground: '#0a2a6a', accent: '#00ffff' },
-            17: { bg: ['#1a2a9a', '#0a1a8a', '#00007a'], pipe: ['#0099ee', '#00ccff', '#55eeff', '#00aadd'], ground: '#0a1a7a', accent: '#00ffff' },
-            18: { bg: ['#2a1a9a', '#1a0a8a', '#0a007a'], pipe: ['#6600ff', '#9933ff', '#bb66ff', '#8800ff'], ground: '#1a0a6a', accent: '#bb66ff' },
-            19: { bg: ['#3a1aaa', '#2a0a9a', '#1a008a'], pipe: ['#7700ff', '#aa44ff', '#cc88ff', '#9900ff'], ground: '#2a0a7a', accent: '#cc88ff' },
-            20: { bg: ['#4a2abb', '#3a1aaa', '#2a0a9a'], pipe: ['#8844ff', '#bb77ff', '#dd99ff', '#aa55ff'], ground: '#3a1a8a', accent: '#ff00ff' }
+            // Levels 16-20: Cosmic Space (Cyan → Neon → Purple Haze)
+            16: { bg: ['#00cccc', '#00aaaa', '#008888'], pipe: ['#00ffff', '#33ffff', '#66ffff', '#00ddff'], ground: '#009999', accent: '#00ffff' },
+            17: { bg: ['#00ddff', '#00bbdd', '#0099bb'], pipe: ['#00ffff', '#55ffff', '#77ffff', '#00eeee'], ground: '#0099bb', accent: '#66ffff' },
+            18: { bg: ['#6600ff', '#5500dd', '#4400bb'], pipe: ['#8833ff', '#aa55ff', '#cc77ff', '#9944ff'], ground: '#5500dd', accent: '#bb66ff' },
+            19: { bg: ['#6a0dad', '#550088', '#3a0066'], pipe: ['#9933ff', '#bb66ff', '#dd88ff', '#aa44ff'], ground: '#550088', accent: '#dd99ff' },
+            20: { bg: ['#1a0033', '#0d001a', '#060009'], pipe: ['#7700ff', '#aa00ff', '#dd44ff', '#bb00ff'], ground: '#0d001a', accent: '#ff00ff' }
         };
 
         // Which skins unlock at each level (skin key => required level)
