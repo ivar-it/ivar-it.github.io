@@ -168,48 +168,47 @@
 
         .motivation-popup {
             position: absolute;
-            top: 50%;
+            bottom: 100px;
             left: 50%;
-            transform: translate(-50%, -50%) scale(0.8);
-            background: rgba(255, 107, 0, 0.2);
-            color: #ff6b00;
-            padding: 20px 30px;
-            border-radius: 10px;
-            font-size: 28px;
+            transform: translateX(-50%) scale(0.8);
+            color: #ff8c00;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 18px;
             font-weight: bold;
             z-index: 25;
             text-shadow:
-                -2px -2px 0 rgba(0, 0, 0, 0.8),
-                2px -2px 0 rgba(0, 0, 0, 0.8),
-                -2px 2px 0 rgba(0, 0, 0, 0.8),
-                2px 2px 0 rgba(0, 0, 0, 0.8),
-                0 0 15px rgba(255, 107, 0, 0.8);
+                -1px -1px 0 rgba(0, 0, 0, 0.6),
+                1px -1px 0 rgba(0, 0, 0, 0.6),
+                -1px 1px 0 rgba(0, 0, 0, 0.6),
+                1px 1px 0 rgba(0, 0, 0, 0.6),
+                0 0 12px rgba(255, 140, 0, 0.6);
             display: none;
-            border: 2px solid rgba(255, 107, 0, 0.5);
-            animation: popupAppear 0.3s ease-out forwards;
-            max-width: 85%;
+            animation: popupAppear 0.2s ease-out forwards;
+            max-width: 80%;
             text-align: center;
+            opacity: 0.6;
         }
 
         @keyframes popupAppear {
             0% {
                 opacity: 0;
-                transform: translate(-50%, -50%) scale(0.5);
+                transform: translateX(-50%) scale(0.8);
             }
             100% {
-                opacity: 1;
-                transform: translate(-50%, -50%) scale(1);
+                opacity: 0.6;
+                transform: translateX(-50%) scale(1);
             }
         }
 
         @keyframes popupDisappear {
             0% {
-                opacity: 1;
-                transform: translate(-50%, -50%) scale(1);
+                opacity: 0.6;
+                transform: translateX(-50%) scale(1);
             }
             100% {
                 opacity: 0;
-                transform: translate(-50%, -50%) scale(0.8);
+                transform: translateX(-50%) scale(0.9);
             }
         }
 
@@ -291,63 +290,63 @@
             top: 20px;
             right: 20px;
             color: #ffaa00;
-            font-size: 18px;
+            font-size: 14px;
             font-weight: bold;
-            text-shadow: 0 0 10px rgba(255, 170, 0, 0.8);
+            text-shadow: 0 0 8px rgba(255, 170, 0, 0.6);
             z-index: 10;
             pointer-events: none;
             text-align: right;
+            opacity: 0.7;
         }
 
         .streak-display .streak-label {
-            font-size: 12px;
-            opacity: 0.8;
+            font-size: 10px;
+            opacity: 0.6;
         }
 
         .combo-popup {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) scale(0.8);
-            background: rgba(255, 170, 0, 0.3);
+            top: 80px;
+            right: 20px;
+            transform: scale(0.8);
             color: #ffff00;
-            padding: 20px 30px;
-            border-radius: 10px;
-            font-size: 48px;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 32px;
             font-weight: bold;
-            z-index: 25;
+            z-index: 26;
             text-shadow:
-                -2px -2px 0 rgba(0, 0, 0, 0.9),
-                2px -2px 0 rgba(0, 0, 0, 0.9),
-                -2px 2px 0 rgba(0, 0, 0, 0.9),
-                2px 2px 0 rgba(0, 0, 0, 0.9),
-                0 0 20px rgba(255, 255, 0, 1);
+                -1px -1px 0 rgba(0, 0, 0, 0.7),
+                1px -1px 0 rgba(0, 0, 0, 0.7),
+                -1px 1px 0 rgba(0, 0, 0, 0.7),
+                1px 1px 0 rgba(0, 0, 0, 0.7),
+                0 0 15px rgba(255, 255, 0, 0.8);
             display: none;
-            border: 3px solid #ffff00;
-            animation: comboPopupAppear 0.3s ease-out forwards;
+            animation: comboPopupAppear 0.2s ease-out forwards;
             max-width: 85%;
             text-align: center;
+            opacity: 0.7;
         }
 
         @keyframes comboPopupAppear {
             0% {
                 opacity: 0;
-                transform: translate(-50%, -50%) scale(0.3);
+                transform: scale(0.5);
             }
             100% {
-                opacity: 1;
-                transform: translate(-50%, -50%) scale(1);
+                opacity: 0.7;
+                transform: scale(1);
             }
         }
 
         @keyframes comboPopupDisappear {
             0% {
-                opacity: 1;
-                transform: translate(-50%, -50%) scale(1);
+                opacity: 0.7;
+                transform: scale(1);
             }
             100% {
                 opacity: 0;
-                transform: translate(-50%, -50%) scale(0.5);
+                transform: scale(0.8);
             }
         }
 
@@ -800,6 +799,53 @@
             if (musicTimeoutId) clearTimeout(musicTimeoutId);
         }
 
+        // ─── Message queue system for popups ──────────────────────────────
+        const popupManager = {
+            queue: [],
+            currentPopup: null,
+            isProcessing: false,
+
+            enqueue(type, message, duration) {
+                this.queue.push({ type, message, duration });
+                this.process();
+            },
+
+            process() {
+                if (this.isProcessing || this.queue.length === 0) return;
+
+                // Filter queue to ensure streak messages have priority
+                // Remove motivational if streak is waiting
+                const hasStreak = this.queue.some(m => m.type === 'streak');
+                if (hasStreak) {
+                    this.queue = this.queue.filter(m => m.type === 'streak' || m.type === 'active');
+                }
+
+                const next = this.queue.shift();
+                if (!next) return;
+
+                this.show(next.type, next.message, next.duration);
+            },
+
+            show(type, message, duration) {
+                this.isProcessing = true;
+                const popupId = type === 'streak' ? 'comboPopup' : 'motivationPopup';
+                const popup = document.getElementById(popupId);
+
+                popup.textContent = message;
+                popup.style.display = 'block';
+                popup.classList.remove('disappear');
+
+                setTimeout(() => {
+                    popup.classList.add('disappear');
+                    setTimeout(() => {
+                        popup.style.display = 'none';
+                        this.isProcessing = false;
+                        this.process();
+                    }, 200);
+                }, duration);
+            }
+        };
+
         // ─── Motivational messages ─────────────────────────────────────────
         const motivationalMessages = [
             '\uD83D\uDD25 INSANE! \uD83D\uDD25',
@@ -815,16 +861,8 @@
         ];
 
         function showMotivation() {
-            const popup = document.getElementById('motivationPopup');
             const message = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
-            popup.textContent = message;
-            popup.style.display = 'block';
-            popup.classList.remove('disappear');
-
-            setTimeout(() => {
-                popup.classList.add('disappear');
-                setTimeout(() => { popup.style.display = 'none'; }, 300);
-            }, 1800);
+            popupManager.enqueue('motivational', message, 2000);
         }
 
         // ─── Combo/Streak system ──────────────────────────────────────────
@@ -842,16 +880,8 @@
         }
 
         function showComboPopup(multiplier) {
-            const popup = document.getElementById('comboPopup');
             const message = streakMessages[Math.min(streakMessages.length - 1, Math.floor(multiplier / 2))];
-            popup.textContent = message;
-            popup.style.display = 'block';
-            popup.classList.remove('disappear');
-
-            setTimeout(() => {
-                popup.classList.add('disappear');
-                setTimeout(() => { popup.style.display = 'none'; }, 300);
-            }, 1500);
+            popupManager.enqueue('streak', message, 1500);
         }
 
         function addToStreak() {
