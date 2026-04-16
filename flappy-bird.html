@@ -148,15 +148,16 @@
             y: canvas.height / 2,
             radius: 15,
             velocity: 0,
-            gravity: 0.5,
-            lift: -12,
+            gravity: 0.35,
+            lift: -10,
             color: '#ff6b00'
         };
 
         const pipes = [];
-        const pipeGap = 120;
+        const pipeGap = 210;
         const pipeWidth = 50;
         let pipeCounter = 0;
+        const version = '1.1';
 
         // Draw bird
         function drawBird() {
@@ -224,7 +225,7 @@
 
             // Update pipes
             pipes.forEach((pipe, index) => {
-                pipe.x -= 4;
+                pipe.x -= 3;
 
                 // Score
                 if (!pipe.scored && pipe.x + pipeWidth < bird.x) {
@@ -260,6 +261,11 @@
             drawBackground();
             drawPipes();
             drawBird();
+
+            // Version text
+            ctx.fillStyle = '#ff6b00';
+            ctx.font = '14px Arial';
+            ctx.fillText('v' + version, 10, 25);
         }
 
         // Game loop
