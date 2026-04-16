@@ -577,7 +577,9 @@
                 shield: null,
                 slowmo: null,
                 doublepoints: null
-            }
+            },
+            invulnerable: false,
+            invulnerabilityTimer: 0
         };
 
         const bird = {
@@ -1237,6 +1239,29 @@
                 ctx.stroke();
             }
 
+            // Invulnerability glow (pulsing cyan/bright blue)
+            if (game.invulnerable) {
+                const pulseIntensity = 0.5 + Math.sin((1000 - game.invulnerabilityTimer) / 150) * 0.5;
+                ctx.globalAlpha = pulseIntensity * 0.7;
+
+                const invulnGrad = ctx.createRadialGradient(0, 0, bird.radius * 0.8, 0, 0, bird.radius * 2.5);
+                invulnGrad.addColorStop(0, 'rgba(0, 255, 255, 0.8)');
+                invulnGrad.addColorStop(0.5, 'rgba(0, 200, 255, 0.4)');
+                invulnGrad.addColorStop(1, 'rgba(0, 150, 255, 0)');
+                ctx.fillStyle = invulnGrad;
+                ctx.beginPath();
+                ctx.arc(0, 0, bird.radius * 2.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Outer pulsing ring
+                ctx.globalAlpha = pulseIntensity * 0.5;
+                ctx.strokeStyle = 'rgba(0, 255, 255, 0.9)';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(0, 0, bird.radius * 2, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
             ctx.restore();
         }
 
@@ -1366,6 +1391,15 @@
             bird.velocity += bird.gravity;
             bird.y += bird.velocity;
 
+            // Update invulnerability timer
+            if (game.invulnerable) {
+                game.invulnerabilityTimer -= 16; // ~60fps, ~16ms per frame
+                if (game.invulnerabilityTimer <= 0) {
+                    game.invulnerable = false;
+                    game.invulnerabilityTimer = 0;
+                }
+            }
+
             // Update rings & particles & power-ups
             updateJumpRings();
             updateParticles();
@@ -1438,12 +1472,18 @@
 
             // Boundary collision
             if (bird.y + bird.radius > canvas.height || bird.y - bird.radius < 0) {
+                // Skip collision if invulnerable
+                if (game.invulnerable) return;
+
                 // Check if shield is active
                 if (game.activePowerUps.shield) {
                     shieldBlockSound();
                     spawnPowerUpParticles(bird.x, bird.y, 'shield');
                     deactivatePowerUp('shield');
                     triggerShake(9, 20);
+                    // Activate invulnerability period
+                    game.invulnerable = true;
+                    game.invulnerabilityTimer = 1000;
                     return;
                 }
                 endGame();
@@ -1457,6 +1497,9 @@
                     bird.x - bird.radius < pipe.x + pipeWidth &&
                     (bird.y - bird.radius < pipe.top || bird.y + bird.radius > pipe.bottom)
                 ) {
+                    // Skip collision if invulnerable
+                    if (game.invulnerable) return;
+
                     triggerShake(9, 20);
 
                     // Check if shield is active
@@ -1464,7 +1507,9 @@
                         shieldBlockSound();
                         spawnPowerUpParticles(bird.x, bird.y, 'shield');
                         deactivatePowerUp('shield');
-                        // Don't end game, just trigger visual feedback
+                        // Activate invulnerability period
+                        game.invulnerable = true;
+                        game.invulnerabilityTimer = 1000;
                         return;
                     }
 
@@ -1506,6 +1551,10 @@
             if (game.gameOver) return; // guard against double-trigger
             game.gameOver = true;
             resetStreak();
+
+            // Reset invulnerability
+            game.invulnerable = false;
+            game.invulnerabilityTimer = 0;
 
             // Reset all active power-ups
             Object.keys(game.activePowerUps).forEach(type => {
