@@ -1408,6 +1408,14 @@
 
             // Boundary collision
             if (bird.y + bird.radius > canvas.height || bird.y - bird.radius < 0) {
+                // Check if shield is active
+                if (game.activePowerUps.shield) {
+                    shieldBlockSound();
+                    spawnPowerUpParticles(bird.x, bird.y, 'shield');
+                    deactivatePowerUp('shield');
+                    triggerShake(9, 20);
+                    return;
+                }
                 endGame();
                 return;
             }
