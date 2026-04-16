@@ -98,6 +98,20 @@
                 duration: 15000,
                 effect: 'Score x2',
                 glowColor: 'rgba(255, 215, 0, 0.3)'
+            },
+            slowmo: {
+                color: '#00ccff',
+                icon: 'slowmo',
+                duration: 8000,
+                effect: 'Pipes slow down!',
+                glowColor: 'rgba(0, 204, 255, 0.5)'
+            },
+            invincible: {
+                color: '#ff00ff',
+                icon: 'invincible',
+                duration: 10000,
+                effect: 'Invincible mode!',
+                glowColor: 'rgba(255, 0, 255, 0.6)'
             }
         };
 
@@ -420,10 +434,13 @@
             activePowerUps: {
                 shield: null,
                 powbomb: null,
-                doublepoints: null
+                doublepoints: null,
+                slowmo: null,
+                invincible: null
             },
             invulnerable: false,
             invulnerabilityTimer: 0,
+            invincibleHits: 0,
             soundEnabled: localStorage.getItem('flappyBirdSoundEnabled') !== 'false' ? true : false,
             selectedSkin: localStorage.getItem('selectedBirdSkin') || 'classic'
         };
@@ -1483,6 +1500,12 @@
             } else if (type === 'doublepoints') {
                 pointMultiplier = 2;
                 updateMultiplierDisplay();
+            } else if (type === 'slowmo') {
+                // Slow-motion: pipes move slower
+                pipeSpeed = basePipeSpeed * 0.5;
+            } else if (type === 'invincible') {
+                // Invincibility: takes a few collisions before effect wears
+                game.invincibleHits = 3;
             }
 
             collectPowerUpSound();
@@ -1495,6 +1518,10 @@
             } else if (type === 'doublepoints') {
                 pointMultiplier = 1;
                 updateMultiplierDisplay();
+            } else if (type === 'slowmo') {
+                pipeSpeed = basePipeSpeed;
+            } else if (type === 'invincible') {
+                game.invincibleHits = 0;
             }
             game.activePowerUps[type] = null;
             updatePowerUpDisplay();
@@ -1575,6 +1602,8 @@
                 case 'shield': return '🛡️';
                 case 'powbomb': return '💥';
                 case 'doublepoints': return '⭐';
+                case 'slowmo': return '⏱️';
+                case 'invincible': return '✨';
                 default: return '✨';
             }
         }
@@ -1684,6 +1713,10 @@
                     drawBombIcon(0, 0, size * 0.5);
                 } else if (pu.type === 'doublepoints') {
                     drawStarIcon(0, 0, size * 0.5);
+                } else if (pu.type === 'slowmo') {
+                    drawSlowmoIcon(0, 0, size * 0.5);
+                } else if (pu.type === 'invincible') {
+                    drawInvincibleIcon(0, 0, size * 0.5);
                 }
 
                 ctx.restore();
@@ -1768,6 +1801,59 @@
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawSlowmoIcon(x, y, size) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.fillStyle = '#00ccff';
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 2.5;
+
+            // Slow-motion hourglass/clock
+            // Top circle
+            ctx.beginPath();
+            ctx.arc(-size * 0.3, -size * 0.25, size * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Bottom circle
+            ctx.beginPath();
+            ctx.arc(size * 0.3, size * 0.25, size * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Connection line
+            ctx.beginPath();
+            ctx.moveTo(-size * 0.15, -size * 0.1);
+            ctx.lineTo(size * 0.15, size * 0.1);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawInvincibleIcon(x, y, size) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.fillStyle = 'rgba(255, 0, 255, 0.4)';
+            ctx.strokeStyle = '#ff00ff';
+            ctx.lineWidth = 3;
+
+            // Protective aura circles
+            ctx.beginPath();
+            ctx.arc(0, 0, size * 0.6, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(0, 0, size * 0.35, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Inner protection orb
+            ctx.fillStyle = '#ff00ff';
+            ctx.beginPath();
+            ctx.arc(0, 0, size * 0.15, 0, Math.PI * 2);
+            ctx.fill();
 
             ctx.restore();
         }
@@ -2174,6 +2260,19 @@
                 // Skip collision if invulnerable
                 if (game.invulnerable) return;
 
+                // Check if invincible power-up is active
+                if (game.activePowerUps.invincible && game.invincibleHits > 0) {
+                    game.invincibleHits--;
+                    triggerShake(5, 15);
+                    haptic(50);
+                    if (game.invincibleHits <= 0) {
+                        deactivatePowerUp('invincible');
+                    } else {
+                        spawnPowerUpParticles(bird.x, bird.y, 'invincible');
+                    }
+                    return;
+                }
+
                 // Check if shield is active
                 if (game.activePowerUps.shield) {
                     shieldBlockSound();
@@ -2212,6 +2311,19 @@
                     if (game.invulnerable) return;
 
                     triggerShake(9, 20);
+
+                    // Check if invincible power-up is active
+                    if (game.activePowerUps.invincible && game.invincibleHits > 0) {
+                        game.invincibleHits--;
+                        triggerShake(5, 15);
+                        haptic(50);
+                        if (game.invincibleHits <= 0) {
+                            deactivatePowerUp('invincible');
+                        } else {
+                            spawnPowerUpParticles(bird.x, bird.y, 'invincible');
+                        }
+                        return;
+                    }
 
                     // Check if shield is active
                     if (game.activePowerUps.shield) {
@@ -2519,6 +2631,12 @@
             basePipeSpeed = settings.pipeSpeed;
             pipeGap = settings.pipeGap;
             pipeFrequency = settings.pipeFrequency;
+
+            // Apply level-based speed scaling (1.5% speed increase per level)
+            const currentLevel = getEffectiveLevel();
+            const levelSpeedBoost = 1 + (currentLevel - 1) * 0.015;
+            pipeSpeed *= levelSpeedBoost;
+            basePipeSpeed *= levelSpeedBoost;
 
             // Start new run tracking
             statsManager.startNewRun(difficulty);
