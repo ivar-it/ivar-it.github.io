@@ -987,11 +987,15 @@
         }
 
         function spawnPipeParticles(x, y) {
-            const count = 6 + Math.floor(Math.random() * 3);
+            const currentLevel = getEffectiveLevel();
+            // More particles at higher levels (visual intensity scales with progression)
+            const baseCount = 6 + Math.floor(Math.random() * 3);
+            const levelBonus = Math.floor(currentLevel / 4);
+            const count = baseCount + levelBonus;
             const colors = getPipeParticleColorsForLevel();
             for (let i = 0; i < count; i++) {
                 const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.8;
-                const speed = 2.5 + Math.random() * 3;
+                const speed = 2.5 + Math.random() * 3 + currentLevel * 0.1;
                 particles.push({
                     x,
                     y,
@@ -2213,7 +2217,11 @@
 
                 if (!pipe.scored && pipe.x + pipeWidth < bird.x) {
                     pipe.scored = true;
-                    game.score += pointMultiplier;
+                    // Level-based score bonus: +1 point per 2 levels (0.5% per level)
+                    const currentLevel = getEffectiveLevel();
+                    const levelBonus = Math.floor(currentLevel / 2);
+                    const baseScore = 1 + levelBonus;
+                    game.score += baseScore * pointMultiplier;
                     addToStreak();
                     awardXP('pipe');
                     awardXP('streak5', game.streak);
@@ -2380,7 +2388,34 @@
             ctx.font = '14px Arial';
             ctx.fillText('v' + version, 10, 25);
 
+            // Draw level difficulty indicator (speed multiplier)
+            if (game.started && !game.gameOver) {
+                const currentLevel = getEffectiveLevel();
+                const speedMultiplier = (1 + (currentLevel - 1) * 0.015).toFixed(2);
+                ctx.fillStyle = 'rgba(255, 107, 0, 0.6)';
+                ctx.font = '12px Arial';
+                ctx.fillText(`Lv${currentLevel} x${speedMultiplier}`, 10, 40);
+            }
+
             ctx.restore();
+
+            // Draw slowmo screen effect (cyan tint + edge focus)
+            if (game.activePowerUps.slowmo) {
+                ctx.save();
+                // Cyan/blue tint for slowmo
+                ctx.globalAlpha = 0.08;
+                ctx.fillStyle = '#00ccff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Optional: subtle vignette effect
+                const vignette = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, canvas.height * 0.3, canvas.width / 2, canvas.height / 2, canvas.height * 0.9);
+                vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+                vignette.addColorStop(1, 'rgba(0, 0, 0, 0.1)');
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = vignette;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.restore();
+            }
 
             // Draw screen flash effect
             if (screenFlash.active) {
