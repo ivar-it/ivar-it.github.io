@@ -444,7 +444,13 @@
             comboMultiplier: 1,
             consecutivePipes: 0,
             soundEnabled: localStorage.getItem('flappyBirdSoundEnabled') !== 'false' ? true : false,
-            selectedSkin: localStorage.getItem('selectedBirdSkin') || 'classic'
+            selectedSkin: localStorage.getItem('selectedBirdSkin') || 'classic',
+            // Boss level system
+            isBossLevel: false,
+            bossType: null,
+            bossProgress: 0,
+            bossThreshold: 8,
+            bossDefeated: [false, false, false, false] // Tracks boss completion for levels 5, 10, 15, 20
         };
 
         const bird = {
@@ -466,7 +472,11 @@
             powerUpFlashTimer: 0,
             powerUpFlashDuration: 300,
             trailParticles: [],
-            eyeWidthMultiplier: 1.0
+            eyeWidthMultiplier: 1.0,
+            // Accelerator mechanic (multi-tap boost)
+            lastTapTime: 0,
+            tapCount: 0,
+            tapWindow: 300 // milliseconds to register consecutive taps
         };
 
         const pipes = [];
@@ -475,7 +485,7 @@
         let pipeCounter = 0;
         let pipeSpeed = 3;
         let pipeFrequency = 90;
-        const version = '0.7.0';
+        const version = '0.8.0';
 
         // ─── XP & Level System ────────────────────────────────────────────
         // Level thresholds: how much TOTAL XP to reach each level
@@ -666,6 +676,22 @@
             if (level <= 10) return 'INTERMEDIATE';
             if (level <= 15) return 'EXPERT';
             return 'APOCALYPSE';
+        }
+
+        // Boss level system
+        const BOSS_LEVELS = {
+            5: { name: 'FLAME GUARDIAN', color: '#ff4500', gapReduction: 20, speedBoost: 0.3, special: 'double-pipes' },
+            10: { name: 'VOID WARDEN', color: '#6600ff', gapReduction: 25, speedBoost: 0.4, special: 'squeeze' },
+            15: { name: 'ENTROPY TITAN', color: '#ff00ff', gapReduction: 30, speedBoost: 0.5, special: 'walls-close' },
+            20: { name: 'APOCALYPSE NEXUS', color: '#ff0000', gapReduction: 35, speedBoost: 0.6, special: 'all-effects' }
+        };
+
+        function isBossLevel(level) {
+            return level % 5 === 0 && level > 0 && level <= 20;
+        }
+
+        function getBossInfo(level) {
+            return BOSS_LEVELS[level] || null;
         }
 
         function getConfettiColorsForLevel() {
@@ -1119,6 +1145,30 @@
                 ctx.fill();
                 ctx.restore();
             });
+        }
+
+        // ─── Multi-tap accelerator mechanic ────────────────────────────────
+        function calculateAcceleratorBoost() {
+            const now = Date.now();
+            const timeSinceLastTap = now - bird.lastTapTime;
+
+            if (timeSinceLastTap > bird.tapWindow) {
+                // Reset if tap window expired
+                bird.tapCount = 1;
+            } else {
+                // Consecutive tap within window - increment counter
+                bird.tapCount = Math.min(4, bird.tapCount + 1);
+            }
+
+            bird.lastTapTime = now;
+
+            // Calculate lift multiplier based on tap count
+            // Tap 1: 1.0x (normal)
+            // Tap 2: 1.2x (+20%)
+            // Tap 3: 1.4x (+40%)
+            // Tap 4+: 1.6x (+60%, max)
+            const multipliers = [0, 1.0, 1.2, 1.4, 1.6];
+            return multipliers[bird.tapCount] || 1.6;
         }
 
         // ─── Jump ring / visual feedback ───────────────────────────────────
@@ -2315,6 +2365,15 @@
                     }
 
                     if (game.score % 10 === 0) showMotivation();
+
+                    // Boss level progress tracking
+                    if (game.isBossLevel) {
+                        game.bossProgress++;
+                        // Check if boss is defeated (threshold reached)
+                        if (game.bossProgress >= game.bossThreshold) {
+                            defeatBoss();
+                        }
+                    }
                 }
 
                 if (pipe.x + pipeWidth < 0) pipes.splice(index, 1);
@@ -2477,7 +2536,19 @@
                 const zone = getDifficultyZone(currentLevel);
                 ctx.fillStyle = 'rgba(255, 107, 0, 0.6)';
                 ctx.font = '12px Arial';
-                ctx.fillText(`${zone} | Lv${currentLevel} x${speedMultiplier}`, 10, 40);
+
+                // Show boss status if boss level
+                if (game.isBossLevel) {
+                    const boss = game.bossType;
+                    ctx.fillStyle = boss.color;
+                    ctx.font = 'bold 14px Arial';
+                    ctx.fillText(`⚡ ${boss.name} ⚡`, 10, 40);
+                    ctx.fillStyle = boss.color;
+                    ctx.font = '13px Arial';
+                    ctx.fillText(`Pipes: ${Math.floor(game.bossProgress)}/${Math.floor(game.bossThreshold)}`, 10, 55);
+                } else {
+                    ctx.fillText(`${zone} | Lv${currentLevel} x${speedMultiplier}`, 10, 40);
+                }
             }
 
             ctx.restore();
@@ -2675,6 +2746,103 @@
             }
         }
 
+        // ─── Boss Intro Screen ────────────────────────────────────────────────
+        function showBossIntro() {
+            const boss = game.bossType;
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.9);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                animation: fadeIn 0.5s ease-out;
+            `;
+
+            const intro = document.createElement('div');
+            intro.style.cssText = `
+                text-align: center;
+                color: ${boss.color};
+                font-family: Arial, sans-serif;
+            `;
+            intro.innerHTML = `
+                <div style="font-size: 72px; font-weight: bold; margin-bottom: 30px; text-shadow: 0 0 30px ${boss.color};">
+                    ⚡
+                </div>
+                <div style="font-size: 48px; font-weight: bold; margin-bottom: 20px; text-shadow: 0 0 20px ${boss.color};">
+                    ${boss.name}
+                </div>
+                <div style="font-size: 20px; margin-bottom: 40px; color: rgba(255, 255, 255, 0.8);">
+                    DEFEAT THIS BOSS TO PROGRESS
+                </div>
+                <div style="font-size: 16px; color: rgba(255, 255, 255, 0.6);">
+                    Survive and clear ${Math.floor(game.bossThreshold)} pipes
+                </div>
+            `;
+
+            overlay.appendChild(intro);
+            document.body.appendChild(overlay);
+
+            // Trigger screen shake
+            triggerShake(5, 20);
+            haptic([100, 50, 100]); // Dramatic haptic
+
+            // Remove intro after 2.5 seconds
+            setTimeout(() => {
+                overlay.remove();
+            }, 2500);
+        }
+
+        // ─── Defeat Boss ──────────────────────────────────────────────────────
+        function defeatBoss() {
+            const currentLevel = getEffectiveLevel();
+            const bossIdx = (currentLevel / 5) - 1;
+            game.bossDefeated[bossIdx] = true;
+            localStorage.setItem(`bossDefeated${currentLevel}`, 'true');
+
+            // Trigger epic victory sequence
+            triggerScreenFlash();
+            triggerExplosionShake();
+            haptic([50, 100, 50]); // Victory haptic pattern
+            playAudioBuffer('levelUp'); // Victory sound
+
+            // Show boss victory popup
+            const boss = game.bossType;
+            const popup = document.createElement('div');
+            popup.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(0, 0, 0, 0.95);
+                color: ${boss.color};
+                padding: 40px;
+                border-radius: 20px;
+                z-index: 10000;
+                text-align: center;
+                font-family: Arial, sans-serif;
+                border: 3px solid ${boss.color};
+                box-shadow: 0 0 50px ${boss.color};
+            `;
+            popup.innerHTML = `
+                <div style="font-size: 48px; font-weight: bold; margin-bottom: 20px;">⚡ BOSS DEFEATED! ⚡</div>
+                <div style="font-size: 32px; font-weight: bold; margin-bottom: 10px;">${boss.name}</div>
+                <div style="font-size: 24px; margin-bottom: 30px;">Level ${currentLevel} Complete!</div>
+            `;
+            document.body.appendChild(popup);
+
+            // Hide after 3 seconds and end game
+            setTimeout(() => {
+                popup.remove();
+                endGame();
+            }, 3000);
+        }
+
         // ─── End game ──────────────────────────────────────────────────────
         function endGame() {
             if (game.gameOver) return; // guard against double-trigger
@@ -2770,6 +2938,20 @@
             pipeSpeed *= levelSpeedBoost;
             basePipeSpeed *= levelSpeedBoost;
 
+            // Check if this is a boss level and apply modifiers
+            game.isBossLevel = isBossLevel(currentLevel);
+            game.bossType = game.isBossLevel ? getBossInfo(currentLevel) : null;
+            if (game.isBossLevel) {
+                const boss = game.bossType;
+                // Apply boss-specific difficulty increases
+                pipeGap -= boss.gapReduction; // Reduce gap size
+                pipeSpeed *= (1 + boss.speedBoost); // Increase pipe speed
+                pipeFrequency = Math.max(50, pipeFrequency - 10); // Pipes come faster
+                // Set win condition based on level
+                game.bossThreshold = 8 + (currentLevel / 5) * 2; // 8, 10, 12, 15 pipes
+                game.bossProgress = 0;
+            }
+
             // Start new run tracking
             statsManager.startNewRun(difficulty);
 
@@ -2779,6 +2961,11 @@
             document.getElementById('soundToggle').classList.remove('visible');
             stopStartMusic();
             game.started = true;
+
+            // Show boss intro if boss level
+            if (game.isBossLevel) {
+                showBossIntro();
+            }
 
             // Highlight selected difficulty
             document.querySelectorAll('.difficulty-btn').forEach(btn => {
@@ -2874,10 +3061,15 @@
             }
 
             if (game.started) {
-                bird.velocity = bird.lift;
+                // Apply accelerator boost for multi-tap
+                const boostMultiplier = calculateAcceleratorBoost();
+                bird.velocity = bird.lift * boostMultiplier;
                 jumpSound();
                 spawnJumpRing();
-                haptic(18); // light haptic pulse on each flap
+
+                // Enhanced haptic feedback: more intense with more taps
+                const hapticStrength = 18 + (bird.tapCount - 1) * 8; // 18, 26, 34, 42ms
+                haptic(hapticStrength);
 
                 // Visual tap feedback on mobile
                 if (e.touches) {
@@ -2981,9 +3173,12 @@
                 }
 
                 if (game.started) {
-                    bird.velocity = bird.lift;
+                    // Apply accelerator boost for multi-tap (keyboard too)
+                    const boostMultiplier = calculateAcceleratorBoost();
+                    bird.velocity = bird.lift * boostMultiplier;
                     jumpSound();
                     spawnJumpRing();
+                    haptic(18); // light haptic
                 }
             }
             // ESC to close customize overlay first, then stats overlay
