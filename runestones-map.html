@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Svenska Runstenar - Interaktiv Karta</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <link rel="stylesheet" href="runestones-style.css">
+</head>
+<body>
+    <div class="header">
+        <h1>🗺️ Svenska Runstenar</h1>
+        <p>Interaktiv karta över runstenar från Riksantikvarieämbetet (RAÄ)</p>
+    </div>
+
+    <div class="container">
+        <div id="map"></div>
+        <div id="info-panel" class="info-panel">
+            <h2>Välj en runsten på kartan</h2>
+            <p>Klicka på markörer för att se detaljer om varje runsten.</p>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([60.5, 15.5], 5);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19,
+        }).addTo(map);
+
+        // Sample runestones data from RAÄ (Fornminnesregistret)
+        // In a real scenario, this would be fetched from RAÄ's API
+        const runestones = [
+            {
+                id: 'drk-49',
+                name: 'Rök runsten',
+                location: 'Rök, Östergötland',
+                lat: 58.5058,
+                lng: 14.9294,
+                inscription: 'En av Sveriges mest kända runstenar',
+                year: '800-tal',
+                image: 'https://rae.se/wp-content/uploads/2016/10/rok-runstenen.jpg',
+                county: 'Östergötland',
+                description: 'En av Skandinaviens längsta runinsikfrifer från vikingatiden.'
+            },
+            {
+                id: 'sod-135',
+                name: 'Tullstenen',
+                location: 'Västerås, Västmanland',
+                lat: 59.6130,
+                lng: 16.5553,
+                inscription: 'Runsten från vikingatiden',
+                year: '900-tal',
+                image: 'https://rae.se/wp-content/uploads/2016/10/tullstenen.jpg',
+                county: 'Västmanland',
+                description: 'Väl bevarad runsten från vikingatiden med tydliga inskriptioner.'
+            },
+            {
+                id: 'upp-270',
+                name: 'Upplands runstenar',
+                location: 'Uppsala, Uppland',
+                lat: 59.8585,
+                lng: 17.6383,
+                inscription: 'Flera runstenar i området',
+                year: '800-1000-tal',
+                image: null,
+                county: 'Uppland',
+                description: 'Uppsala är känt för sitt stort antal runstenar från vikingatiden.'
+            },
+            {
+                id: 'vag-94',
+                name: 'Vägärde runsten',
+                location: 'Värmland',
+                lat: 60.0,
+                lng: 13.5,
+                inscription: 'Runsten från kristnandet',
+                year: '1000-tal',
+                image: null,
+                county: 'Värmland',
+                description: 'Runsten som dokumenterar övergången från hednisk till kristen tid.'
+            },
+            {
+                id: 'dal-156',
+                name: 'Dalrunstenar',
+                location: 'Dalarna',
+                lat: 61.0,
+                lng: 15.0,
+                inscription: 'Mängd runstenar i området',
+                year: '800-1100-tal',
+                image: null,
+                county: 'Dalarna',
+                description: 'Dalarna har en rik samling av runstenar från olika perioder.'
+            }
+        ];
+
+        // Create custom icon
+        const runestoneIcon = L.icon({
+            iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB4PSI2IiB5PSI2IiB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHJ4PSIyIiBmaWxsPSIjOEI0NTEzIiBzdHJva2U9IiNGRkE1MDAiIHN0cm9rZS13aWR0aD0iMiIvPjwvc3ZnPg==',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
+        });
+
+        // Add runestones to map
+        runestones.forEach(stone => {
+            const marker = L.marker([stone.lat, stone.lng], { icon: runestoneIcon })
+                .bindPopup(`<strong>${stone.name}</strong><br>${stone.location}`, { maxWidth: 300 })
+                .addTo(map);
+
+            marker.on('click', () => {
+                displayStoneInfo(stone);
+            });
+        });
+
+        // Display stone information in side panel
+        function displayStoneInfo(stone) {
+            let html = `
+                <div class="stone-info">
+                    <h2>${stone.name}</h2>
+                    <p class="location"><strong>Plats:</strong> ${stone.location}</p>
+                    <p class="county"><strong>Län:</strong> ${stone.county}</p>
+                    <p class="year"><strong>Tid:</strong> ${stone.year}</p>
+            `;
+
+            if (stone.image) {
+                html += `
+                    <div class="image-container">
+                        <img src="${stone.image}" alt="${stone.name}" onerror="this.style.display='none'; this.parentElement.style.display='none';">
+                    </div>
+                `;
+            }
+
+            html += `
+                    <p class="description">${stone.description}</p>
+                    <p class="inscription"><em>"${stone.inscription}"</em></p>
+                </div>
+            `;
+
+            document.getElementById('info-panel').innerHTML = html;
+        }
+
+        // Add legend
+        const legend = L.control({ position: 'bottomright' });
+        legend.onAdd = function() {
+            const div = L.DomUtil.create('div', 'legend');
+            div.innerHTML = `
+                <h4>Legenda</h4>
+                <p><span class="legend-icon" style="background-color: #8B4513;">■</span> Runsten</p>
+                <p style="font-size: 12px; margin-top: 10px;">Data från Riksantikvarieämbetet (RAÄ)</p>
+            `;
+            return div;
+        };
+        legend.addTo(map);
+
+        console.log('Runstenarskarta laddad. Totalt: ' + runestones.length + ' runstenar');
+    </script>
+</body>
+</html>
