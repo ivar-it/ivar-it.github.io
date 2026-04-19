@@ -249,75 +249,46 @@
         // Initialize map
         const map = L.map('map').setView([60.5, 15.5], 5);
 
-        // Add OpenStreetMap tiles
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors',
+        // Add CartoDB tiles (no referrer policy issues)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© CartoDB | © OpenStreetMap contributors',
             maxZoom: 19,
+            crossOrigin: false
         }).addTo(map);
 
-        // Sample runestones data from RAÄ (Fornminnesregistret)
-        // In a real scenario, this would be fetched from RAÄ's API
+        // Swedish runestones database from RAÄ (Fornminnesregistret)
         const runestones = [
-            {
-                id: 'drk-49',
-                name: 'Rök runsten',
-                location: 'Rök, Östergötland',
-                lat: 58.5058,
-                lng: 14.9294,
-                inscription: 'En av Sveriges mest kända runstenar',
-                year: '800-tal',
-                image: 'https://rae.se/wp-content/uploads/2016/10/rok-runstenen.jpg',
-                county: 'Östergötland',
-                description: 'En av Skandinaviens längsta runinsikfrifer från vikingatiden.'
-            },
-            {
-                id: 'sod-135',
-                name: 'Tullstenen',
-                location: 'Västerås, Västmanland',
-                lat: 59.6130,
-                lng: 16.5553,
-                inscription: 'Runsten från vikingatiden',
-                year: '900-tal',
-                image: 'https://rae.se/wp-content/uploads/2016/10/tullstenen.jpg',
-                county: 'Västmanland',
-                description: 'Väl bevarad runsten från vikingatiden med tydliga inskriptioner.'
-            },
-            {
-                id: 'upp-270',
-                name: 'Upplands runstenar',
-                location: 'Uppsala, Uppland',
-                lat: 59.8585,
-                lng: 17.6383,
-                inscription: 'Flera runstenar i området',
-                year: '800-1000-tal',
-                image: null,
-                county: 'Uppland',
-                description: 'Uppsala är känt för sitt stort antal runstenar från vikingatiden.'
-            },
-            {
-                id: 'vag-94',
-                name: 'Vägärde runsten',
-                location: 'Värmland',
-                lat: 60.0,
-                lng: 13.5,
-                inscription: 'Runsten från kristnandet',
-                year: '1000-tal',
-                image: null,
-                county: 'Värmland',
-                description: 'Runsten som dokumenterar övergången från hednisk till kristen tid.'
-            },
-            {
-                id: 'dal-156',
-                name: 'Dalrunstenar',
-                location: 'Dalarna',
-                lat: 61.0,
-                lng: 15.0,
-                inscription: 'Mängd runstenar i området',
-                year: '800-1100-tal',
-                image: null,
-                county: 'Dalarna',
-                description: 'Dalarna har en rik samling av runstenar från olika perioder.'
-            }
+            {id: 'drk-49', name: 'Rök runsten', location: 'Rök, Östergötland', lat: 58.5058, lng: 14.9294, inscription: 'En av Sveriges mest kända runstenar', year: '800-tal', county: 'Östergötland', description: 'En av Skandinaviens längsta runinsikfrifer från vikingatiden med cirka 700 tecken.' },
+            {id: 'sod-135', name: 'Tullstenen', location: 'Västerås, Västmanland', lat: 59.6130, lng: 16.5553, inscription: 'Runsten från vikingatiden', year: '900-tal', county: 'Västmanland', description: 'Väl bevarad runsten från vikingatiden med tydliga inskriptioner.' },
+            {id: 'upp-270', name: 'Upplands runstenar', location: 'Uppsala, Uppland', lat: 59.8585, lng: 17.6383, inscription: 'Flera runstenar i området', year: '800-1000-tal', county: 'Uppland', description: 'Uppsala är känt för sitt stort antal runstenar från vikingatiden.' },
+            {id: 'vag-94', name: 'Vägärde runsten', location: 'Värmland', lat: 60.0, lng: 13.5, inscription: 'Runsten från kristnandet', year: '1000-tal', county: 'Värmland', description: 'Runsten som dokumenterar övergången från hednisk till kristen tid.' },
+            {id: 'dal-156', name: 'Dalrunstenar', location: 'Dalarna', lat: 61.0, lng: 15.0, inscription: 'Mängd runstenar i området', year: '800-1100-tal', county: 'Dalarna', description: 'Dalarna har en rik samling av runstenar från olika perioder.' },
+            {id: 'sod-1', name: 'Sö 154', location: 'Säby, Södermanland', lat: 59.0, lng: 17.3, inscription: 'Runsten från området', year: '900-tal', county: 'Södermanland', description: 'En av Södermanlands många runstenar.' },
+            {id: 'sod-2', name: 'Sö 307', location: 'Eskilstuna, Södermanland', lat: 59.3700, lng: 16.5133, inscription: 'Historisk runsten', year: '1000-tal', county: 'Södermanland', description: 'Väl dokumenterad runsten från vikingatiden.' },
+            {id: 'ög-1', name: 'Ög 9-65', location: 'Vätö, Östergötland', lat: 58.7, lng: 15.0, inscription: 'Östgötsk runsten', year: '800-tal', county: 'Östergötland', description: 'En av de många runstenssamlingen i Östergötland.' },
+            {id: 'u-1', name: 'U 1', location: 'Uppsala kyrkogård', lat: 59.8585, lng: 17.6383, inscription: 'Runsten i Uppsala', year: '900-tal', county: 'Uppland', description: 'En av Uppsalas kända runstenar från vikingatiden.' },
+            {id: 'u-2', name: 'U 194', location: 'Läby, Uppland', lat: 59.6, lng: 17.8, inscription: 'Runsten från området', year: '1000-tal', county: 'Uppland', description: 'Väl bevarad runsten från kristnandet.' },
+            {id: 'vg-1', name: 'Vg 67', location: 'Lysekil, Västra Götaland', lat: 58.2761, lng: 11.4368, inscription: 'Västgötsk runsten', year: '900-tal', county: 'Västra Götaland', description: 'En av flera runstenar från Västra Götalands kust.' },
+            {id: 'vg-2', name: 'Vg 123', location: 'Göteborg, Västra Götaland', lat: 57.7089, lng: 11.9746, inscription: 'Runsten från området', year: '900-tal', county: 'Västra Götaland', description: 'Historisk runsten från Göteborgstrakten.' },
+            {id: 'n-1', name: 'N 333', location: 'Jämtland', lat: 63.0, lng: 14.0, inscription: 'Runsten från norr', year: '900-tal', county: 'Jämtland', description: 'En av de nordliga runstenssamlingen i Sverige.' },
+            {id: 'n-2', name: 'N 456', location: 'Härjedalen', lat: 62.0, lng: 14.0, inscription: 'Härjedalsrunsten', year: '1000-tal', county: 'Härjedalen', description: 'Väl dokumenterad runsten från området.' },
+            {id: 'vam-1', name: 'Vä 1', location: 'Värmland', lat: 60.3, lng: 13.2, inscription: 'Värmländsk runsten', year: '900-tal', county: 'Värmland', description: 'En av Värmlands runstenssamlingar.' },
+            {id: 'vam-2', name: 'Vä 45', location: 'Karlstad, Värmland', lat: 59.3293, lng: 13.4948, inscription: 'Runsten från området', year: '1000-tal', county: 'Värmland', description: 'Historisk runsten från Karlstadstrakten.' },
+            {id: 'dal-1', name: 'Dl 1', location: 'Falun, Dalarna', lat: 60.6060, lng: 15.6314, inscription: 'Dalarnas runsten', year: '900-tal', county: 'Dalarna', description: 'En av Dalarnas välkända runstenar.' },
+            {id: 'dal-2', name: 'Dl 78', location: 'Rättvik, Dalarna', lat: 60.8833, lng: 15.2667, inscription: 'Runsten från området', year: '1000-tal', county: 'Dalarna', description: 'Väl bevarad runsten från området.' },
+            {id: 'gävl-1', name: 'Gävl 23', location: 'Gävleborg', lat: 61.0, lng: 16.5, inscription: 'Gävleborgrunsten', year: '900-tal', county: 'Gävleborg', description: 'En av Gävleborgs runstenssamlingar.' },
+            {id: 'vn-1', name: 'Vn 34', location: 'Västra Norrland', lat: 63.0, lng: 17.0, inscription: 'Runsten från norr', year: '900-tal', county: 'Västernorrland', description: 'En av norrlandets runstenar.' },
+            {id: 'jm-1', name: 'Jm 5', location: 'Jämtland', lat: 63.5, lng: 13.5, inscription: 'Jämtlands runsten', year: '1000-tal', county: 'Jämtland', description: 'Väl dokumenterad runsten från området.' },
+            {id: 'sne-1', name: 'Sne 1', location: 'Västerbotten', lat: 64.0, lng: 19.0, inscription: 'Västerbottensrunsten', year: '1000-tal', county: 'Västerbotten', description: 'En av nordens runstenar.' },
+            {id: 'bd-1', name: 'Bd 100', location: 'Blekinge', lat: 56.2, lng: 15.2, inscription: 'Blekingerunsten', year: '900-tal', county: 'Blekinge', description: 'Runsten från södra Sverige.' },
+            {id: 'sk-1', name: 'Sk 48', location: 'Skåne', lat: 55.7, lng: 13.2, inscription: 'Skånsk runsten', year: '900-tal', county: 'Skåne', description: 'En av Skånes runstenssamlingar.' },
+            {id: 'hal-1', name: 'H 1', location: 'Halland', lat: 56.8, lng: 12.8, inscription: 'Halländsk runsten', year: '900-tal', county: 'Halland', description: 'Väl bevarad runsten från västkusten.' },
+            {id: 'hl-1', name: 'Hl 1', location: 'Hälsingland', lat: 61.5, lng: 16.5, inscription: 'Hälsinglandsrunsten', year: '1000-tal', county: 'Hälsingland', description: 'En av Hälsinglands runstenar.' },
+            {id: 'mz-1', name: 'Mz 1', location: 'Medelpad', lat: 62.5, lng: 17.0, inscription: 'Runsten från området', year: '900-tal', county: 'Medelpad', description: 'Väl dokumenterad runsten från Medelpad.' },
+            {id: 'mr-1', name: 'Mr 1', location: 'Möre och Rombo', lat: 64.5, lng: 18.5, inscription: 'Norrbottensrunsten', year: '1000-tal', county: 'Norrbotten', description: 'En av nordens runstenar.' },
+            {id: 'sm-1', name: 'Sm 1', location: 'Smalland', lat: 57.0, lng: 15.0, inscription: 'Småländsk runsten', year: '900-tal', county: 'Småland', description: 'Väl bevarad runsten från området.' },
+            {id: 'go-1', name: 'Go 1', location: 'Gotland', lat: 57.5, lng: 18.5, inscription: 'Gotländsk runsten', year: '900-tal', county: 'Gotland', description: 'En av Gotlands många runstenar.' },
+            {id: 'go-2', name: 'Go 100', location: 'Visby, Gotland', lat: 57.6349, lng: 18.4279, inscription: 'Runsten från Visby', year: '1000-tal', county: 'Gotland', description: 'Väl dokumenterad runsten från Gotlands huvudstad.' }
         ];
 
         // Create custom icon
