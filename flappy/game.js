@@ -98,6 +98,20 @@
                 duration: 15000,
                 effect: 'Score x2',
                 glowColor: 'rgba(255, 215, 0, 0.3)'
+            },
+            slowmo: {
+                color: '#00ccff',
+                icon: 'slowmo',
+                duration: 8000,
+                effect: 'Pipes slow down!',
+                glowColor: 'rgba(0, 204, 255, 0.5)'
+            },
+            invincible: {
+                color: '#ff00ff',
+                icon: 'invincible',
+                duration: 10000,
+                effect: 'Invincible mode!',
+                glowColor: 'rgba(255, 0, 255, 0.6)'
             }
         };
 
@@ -420,12 +434,23 @@
             activePowerUps: {
                 shield: null,
                 powbomb: null,
-                doublepoints: null
+                doublepoints: null,
+                slowmo: null,
+                invincible: null
             },
             invulnerable: false,
             invulnerabilityTimer: 0,
+            invincibleHits: 0,
+            comboMultiplier: 1,
+            consecutivePipes: 0,
             soundEnabled: localStorage.getItem('flappyBirdSoundEnabled') !== 'false' ? true : false,
-            selectedSkin: localStorage.getItem('selectedBirdSkin') || 'classic'
+            selectedSkin: localStorage.getItem('selectedBirdSkin') || 'classic',
+            // Boss level system
+            isBossLevel: false,
+            bossType: null,
+            bossProgress: 0,
+            bossThreshold: 8,
+            bossDefeated: [false, false, false, false] // Tracks boss completion for levels 5, 10, 15, 20
         };
 
         const bird = {
@@ -447,7 +472,11 @@
             powerUpFlashTimer: 0,
             powerUpFlashDuration: 300,
             trailParticles: [],
-            eyeWidthMultiplier: 1.0
+            eyeWidthMultiplier: 1.0,
+            // Accelerator mechanic (multi-tap boost)
+            lastTapTime: 0,
+            tapCount: 0,
+            tapWindow: 300 // milliseconds to register consecutive taps
         };
 
         const pipes = [];
@@ -456,7 +485,7 @@
         let pipeCounter = 0;
         let pipeSpeed = 3;
         let pipeFrequency = 90;
-        const version = '0.7.0';
+        const version = '0.8.0';
 
         // ─── XP & Level System ────────────────────────────────────────────
         // Level thresholds: how much TOTAL XP to reach each level
@@ -486,33 +515,33 @@
 
         // Level color schemes: Sunset → Dusk → Night → Cosmic Space
         const LEVEL_COLOR_SCHEMES = {
-            // Levels 1-5: Burning Sunset (Red/Orange)
-            1: { bg: ['#4a1a00', '#3d0a00', '#2d0a00'], pipe: ['#550000', '#8b0000', '#aa1100', '#7a0000'], ground: '#4a1a00', accent: '#ff6b00' },
-            2: { bg: ['#5a2010', '#4a1008', '#3d0a00'], pipe: ['#661100', '#9b1000', '#bb2200', '#8a0800'], ground: '#5a1f10', accent: '#ff7a00' },
-            3: { bg: ['#6a2818', '#5a1810', '#4a0a08'], pipe: ['#772200', '#ab2000', '#cc3300', '#9a1800'], ground: '#6a2818', accent: '#ff8800' },
-            4: { bg: ['#7a3020', '#6a2018', '#5a1010'], pipe: ['#883300', '#bb3000', '#dd4400', '#aa2800'], ground: '#7a2f20', accent: '#ff9600' },
-            5: { bg: ['#8a3828', '#7a2820', '#6a1818'], pipe: ['#994400', '#cc4000', '#ee5500', '#bb3800'], ground: '#8a3828', accent: '#ffa400' },
+            // Levels 1-5: Burning Sunset (Deep Red → Bright Orange)
+            1: { bg: ['#8b0000', '#660000', '#330000'], pipe: ['#cc0000', '#ff0000', '#ff3300', '#dd0000'], ground: '#660000', accent: '#ff4500' },
+            2: { bg: ['#b83800', '#8b2400', '#661800'], pipe: ['#e64500', '#ff5500', '#ff7700', '#ff4400'], ground: '#8b2400', accent: '#ff6400' },
+            3: { bg: ['#d97000', '#cc5500', '#aa3300'], pipe: ['#ff6600', '#ff8800', '#ffaa00', '#ff7700'], ground: '#cc5500', accent: '#ff8c00' },
+            4: { bg: ['#f5a000', '#e68800', '#cc6600'], pipe: ['#ff8800', '#ffaa00', '#ffcc00', '#ff9900'], ground: '#e68800', accent: '#ffa500' },
+            5: { bg: ['#ffd700', '#ffcc00', '#ffaa00'], pipe: ['#ffaa00', '#ffdd00', '#ffff00', '#ffbb00'], ground: '#ffcc00', accent: '#ffed4e' },
 
-            // Levels 6-10: Twilight Dusk (Purple/Crimson)
-            6: { bg: ['#6a2040', '#5a1530', '#4a0a20'], pipe: ['#771155', '#bb3388', '#dd55aa', '#aa2277'], ground: '#6a1f40', accent: '#ff55aa' },
-            7: { bg: ['#7a2450', '#6a1840', '#5a0a30'], pipe: ['#882266', '#cc4499', '#ee77bb', '#bb3388'], ground: '#7a2350', accent: '#ff66bb' },
-            8: { bg: ['#8a2860', '#7a1c50', '#6a0a40'], pipe: ['#993377', '#dd55aa', '#ff99cc', '#cc4499'], ground: '#8a2860', accent: '#ff77cc' },
-            9: { bg: ['#7a1848', '#6a0f38', '#5a0028'], pipe: ['#8a1155', '#cc2288', '#ff44bb', '#bb1166'], ground: '#7a1748', accent: '#ff55aa' },
-            10: { bg: ['#6a0f40', '#5a0830', '#4a0020'], pipe: ['#7a0a4d', '#bb1177', '#ee33aa', '#aa0066'], ground: '#6a0e40', accent: '#ff0099' },
+            // Levels 6-10: Twilight Dusk (Purple → Magenta → Hot Pink)
+            6: { bg: ['#4b0082', '#3d0066', '#2a0052'], pipe: ['#7700bb', '#9933ff', '#bb55ff', '#9900dd'], ground: '#3d0066', accent: '#bb33ff' },
+            7: { bg: ['#8b008b', '#6b006b', '#4b004b'], pipe: ['#bb00bb', '#dd00ff', '#ff66ff', '#dd00dd'], ground: '#6b006b', accent: '#ff00ff' },
+            8: { bg: ['#c71585', '#a01370', '#7a0d5a'], pipe: ['#e91e63', '#ff1493', '#ff77dd', '#ff3388'], ground: '#a01370', accent: '#ff1493' },
+            9: { bg: ['#dc143c', '#cc1133', '#bb0022'], pipe: ['#ff1a4d', '#ff3366', '#ff6699', '#ff2255'], ground: '#cc1133', accent: '#ff2252' },
+            10: { bg: ['#ff1493', '#ff0080', '#dd0066'], pipe: ['#ff3388', '#ff66bb', '#ff99dd', '#ff4499'], ground: '#ff0080', accent: '#ff66ff' },
 
-            // Levels 11-15: Night Sky (Deep Blue)
-            11: { bg: ['#1a2a4a', '#0a1a3a', '#000a2a'], pipe: ['#1a4477', '#2a66bb', '#4488ee', '#1a5588'], ground: '#0a1a30', accent: '#4488ff' },
-            12: { bg: ['#0a2a5a', '#001a4a', '#000a3a'], pipe: ['#0a4488', '#1a77dd', '#3399ff', '#0a66aa'], ground: '#001a40', accent: '#3399ff' },
-            13: { bg: ['#001a6a', '#000a5a', '#00004a'], pipe: ['#004499', '#1a88ee', '#22aaff', '#006699'], ground: '#000a50', accent: '#22aaff' },
-            14: { bg: ['#0a1a7a', '#000a6a', '#00005a'], pipe: ['#0055aa', '#1a99ff', '#33bbff', '#0077cc'], ground: '#000a60', accent: '#33bbff' },
-            15: { bg: ['#0a0a8a', '#00008a', '#00007a'], pipe: ['#0055bb', '#1aaa11', '#44ccff', '#0088dd'], ground: '#000070', accent: '#44ccff' },
+            // Levels 11-15: Night Sky (Deep Blue → Navy → Bright Blue)
+            11: { bg: ['#000080', '#000066', '#000044'], pipe: ['#0000cc', '#0033ff', '#3366ff', '#0011dd'], ground: '#000055', accent: '#0033ff' },
+            12: { bg: ['#000099', '#000077', '#000055'], pipe: ['#0011ee', '#0044ff', '#3377ff', '#0022ee'], ground: '#000066', accent: '#0055ff' },
+            13: { bg: ['#0000cd', '#0000aa', '#000088'], pipe: ['#0022ff', '#0055ff', '#3388ff', '#0033ff'], ground: '#000077', accent: '#0077ff' },
+            14: { bg: ['#4169e1', '#3050c0', '#1f3a8a'], pipe: ['#4488ff', '#66aaff', '#88ccff', '#5599ff'], ground: '#2050a0', accent: '#66aaff' },
+            15: { bg: ['#0000ff', '#0000dd', '#0000bb'], pipe: ['#3366ff', '#5588ff', '#77aaff', '#4477ff'], ground: '#0000cc', accent: '#88bbff' },
 
-            // Levels 16-20: Cosmic Space (Cyan/Purple/Stars)
-            16: { bg: ['#0a3a8a', '#001a7a', '#00006a'], pipe: ['#00aadd', '#00ddff', '#66ffff', '#00bbee'], ground: '#0a2a6a', accent: '#00ffff' },
-            17: { bg: ['#1a2a9a', '#0a1a8a', '#00007a'], pipe: ['#0099ee', '#00ccff', '#55eeff', '#00aadd'], ground: '#0a1a7a', accent: '#00ffff' },
-            18: { bg: ['#2a1a9a', '#1a0a8a', '#0a007a'], pipe: ['#6600ff', '#9933ff', '#bb66ff', '#8800ff'], ground: '#1a0a6a', accent: '#bb66ff' },
-            19: { bg: ['#3a1aaa', '#2a0a9a', '#1a008a'], pipe: ['#7700ff', '#aa44ff', '#cc88ff', '#9900ff'], ground: '#2a0a7a', accent: '#cc88ff' },
-            20: { bg: ['#4a2abb', '#3a1aaa', '#2a0a9a'], pipe: ['#8844ff', '#bb77ff', '#dd99ff', '#aa55ff'], ground: '#3a1a8a', accent: '#ff00ff' }
+            // Levels 16-20: Cosmic Space (Cyan → Neon → Purple Haze)
+            16: { bg: ['#00cccc', '#00aaaa', '#008888'], pipe: ['#00ffff', '#33ffff', '#66ffff', '#00ddff'], ground: '#009999', accent: '#00ffff' },
+            17: { bg: ['#00ddff', '#00bbdd', '#0099bb'], pipe: ['#00ffff', '#55ffff', '#77ffff', '#00eeee'], ground: '#0099bb', accent: '#66ffff' },
+            18: { bg: ['#6600ff', '#5500dd', '#4400bb'], pipe: ['#8833ff', '#aa55ff', '#cc77ff', '#9944ff'], ground: '#5500dd', accent: '#bb66ff' },
+            19: { bg: ['#6a0dad', '#550088', '#3a0066'], pipe: ['#9933ff', '#bb66ff', '#dd88ff', '#aa44ff'], ground: '#550088', accent: '#dd99ff' },
+            20: { bg: ['#1a0033', '#0d001a', '#060009'], pipe: ['#7700ff', '#aa00ff', '#dd44ff', '#bb00ff'], ground: '#0d001a', accent: '#ff00ff' }
         };
 
         // Which skins unlock at each level (skin key => required level)
@@ -640,6 +669,31 @@
             return xpManager.getLevelForXP(previewXP);
         }
 
+        // Get difficulty zone name based on level
+        function getDifficultyZone(level) {
+            if (level <= 2) return 'BEGINNER';
+            if (level <= 5) return 'NOVICE';
+            if (level <= 10) return 'INTERMEDIATE';
+            if (level <= 15) return 'EXPERT';
+            return 'APOCALYPSE';
+        }
+
+        // Boss level system
+        const BOSS_LEVELS = {
+            5: { name: 'FLAME GUARDIAN', color: '#ff4500', gapReduction: 20, speedBoost: 0.3, special: 'double-pipes' },
+            10: { name: 'VOID WARDEN', color: '#6600ff', gapReduction: 25, speedBoost: 0.4, special: 'squeeze' },
+            15: { name: 'ENTROPY TITAN', color: '#ff00ff', gapReduction: 30, speedBoost: 0.5, special: 'walls-close' },
+            20: { name: 'APOCALYPSE NEXUS', color: '#ff0000', gapReduction: 35, speedBoost: 0.6, special: 'all-effects' }
+        };
+
+        function isBossLevel(level) {
+            return level % 5 === 0 && level > 0 && level <= 20;
+        }
+
+        function getBossInfo(level) {
+            return BOSS_LEVELS[level] || null;
+        }
+
         function getConfettiColorsForLevel() {
             const currentLevel = getEffectiveLevel();
 
@@ -710,7 +764,18 @@
             confCanvas.width = overlay.offsetWidth || window.innerWidth;
             confCanvas.height = overlay.offsetHeight || window.innerHeight;
 
-            levelText.textContent = 'Level ' + newLevel;
+            // Show level and zone tier
+            const newZone = getDifficultyZone(newLevel);
+            levelText.textContent = 'Level ' + newLevel + ' - ' + newZone;
+
+            // Check if zone changed (difficulty tier upgrade)
+            const oldLevel = newLevel - 1;
+            const oldZone = oldLevel > 0 ? getDifficultyZone(oldLevel) : '';
+            if (oldZone && oldZone !== newZone) {
+                // Zone transition - add visual emphasis
+                levelText.style.fontSize = '32px';
+                levelText.style.fontWeight = 'bold';
+            }
 
             // Check if a skin was unlocked at this level
             const unlockedSkin = Object.entries(SKIN_LEVEL_REQUIREMENTS)
@@ -719,6 +784,11 @@
                 const skinName = birdSkins[unlockedSkin[0]] ? birdSkins[unlockedSkin[0]].name : unlockedSkin[0];
                 unlockEl.textContent = '\u{1F513} Unlocked: ' + skinName + ' Skin!';
                 unlockEl.classList.add('visible');
+            } else if (newLevel === MAX_LEVEL) {
+                // Special message for max level
+                unlockEl.textContent = '👑 YOU\'VE REACHED MAX LEVEL - APOCALYPSE EDITION!';
+                unlockEl.classList.add('visible');
+                unlockEl.style.color = '#ff0000';
             } else {
                 unlockEl.classList.remove('visible');
             }
@@ -767,6 +837,10 @@
                 lastStreakBonusAt = streakCount;
             }
             if (amount === 0) return;
+            // Level-based XP multiplier: +2% per level (caps at 1.4x for level 20)
+            const currentLevel = getEffectiveLevel();
+            const xpMultiplier = 1 + Math.min(0.4, (currentLevel - 1) * 0.02);
+            amount = Math.floor(amount * xpMultiplier);
             const gained = xpManager.addXP(amount);
             showXPFloat(gained);
             updateXPBar();
@@ -970,11 +1044,15 @@
         }
 
         function spawnPipeParticles(x, y) {
-            const count = 6 + Math.floor(Math.random() * 3);
+            const currentLevel = getEffectiveLevel();
+            // More particles at higher levels (visual intensity scales with progression)
+            const baseCount = 6 + Math.floor(Math.random() * 3);
+            const levelBonus = Math.floor(currentLevel / 4);
+            const count = baseCount + levelBonus;
             const colors = getPipeParticleColorsForLevel();
             for (let i = 0; i < count; i++) {
                 const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.8;
-                const speed = 2.5 + Math.random() * 3;
+                const speed = 2.5 + Math.random() * 3 + currentLevel * 0.1;
                 particles.push({
                     x,
                     y,
@@ -1067,6 +1145,30 @@
                 ctx.fill();
                 ctx.restore();
             });
+        }
+
+        // ─── Multi-tap accelerator mechanic ────────────────────────────────
+        function calculateAcceleratorBoost() {
+            const now = Date.now();
+            const timeSinceLastTap = now - bird.lastTapTime;
+
+            if (timeSinceLastTap > bird.tapWindow) {
+                // Reset if tap window expired
+                bird.tapCount = 1;
+            } else {
+                // Consecutive tap within window - increment counter
+                bird.tapCount = Math.min(4, bird.tapCount + 1);
+            }
+
+            bird.lastTapTime = now;
+
+            // Calculate lift multiplier based on tap count
+            // Tap 1: 1.0x (normal)
+            // Tap 2: 1.2x (+20%)
+            // Tap 3: 1.4x (+40%)
+            // Tap 4+: 1.6x (+60%, max)
+            const multipliers = [0, 1.0, 1.2, 1.4, 1.6];
+            return multipliers[bird.tapCount] || 1.6;
         }
 
         // ─── Jump ring / visual feedback ───────────────────────────────────
@@ -1408,6 +1510,22 @@
             popupManager.enqueue('streak', message, 1500);
         }
 
+        function showComboPipesMilestone(pipeCount) {
+            let message = '';
+            if (pipeCount === 5) {
+                message = '🔥 5 PIPE COMBO!';
+            } else if (pipeCount === 10) {
+                message = '⚡ 10 PIPE DOMINATION!';
+            } else if (pipeCount === 15) {
+                message = '💥 15 PIPE RAMPAGE!';
+            } else if (pipeCount >= 20) {
+                message = `🌟 ${pipeCount} PIPE MADNESS!`;
+            } else {
+                return; // Don't show for other numbers
+            }
+            popupManager.enqueue('streak', message, 1500);
+        }
+
         function addToStreak() {
             const streakThreshold = difficultySettings[game.difficulty].streakThreshold;
             game.streak++;
@@ -1432,12 +1550,18 @@
 
         function resetStreak() {
             game.streak = 0;
+            game.comboMultiplier = 1;
+            game.consecutivePipes = 0;
             updateStreakDisplay();
         }
 
         // ─── Power-up management ──────────────────────────────────────────
         function spawnPowerUp(x, y) {
-            const types = ['shield', 'powbomb', 'doublepoints'];
+            // Rare power-ups at higher levels
+            const currentLevel = getEffectiveLevel();
+            let types = ['shield', 'powbomb', 'doublepoints'];
+            if (currentLevel >= 5) types.push('slowmo');
+            if (currentLevel >= 10) types.push('invincible');
             const type = types[Math.floor(Math.random() * types.length)];
             powerUps.push({
                 x: x,
@@ -1483,6 +1607,12 @@
             } else if (type === 'doublepoints') {
                 pointMultiplier = 2;
                 updateMultiplierDisplay();
+            } else if (type === 'slowmo') {
+                // Slow-motion: pipes move slower
+                pipeSpeed = basePipeSpeed * 0.5;
+            } else if (type === 'invincible') {
+                // Invincibility: takes a few collisions before effect wears
+                game.invincibleHits = 3;
             }
 
             collectPowerUpSound();
@@ -1495,6 +1625,10 @@
             } else if (type === 'doublepoints') {
                 pointMultiplier = 1;
                 updateMultiplierDisplay();
+            } else if (type === 'slowmo') {
+                pipeSpeed = basePipeSpeed;
+            } else if (type === 'invincible') {
+                game.invincibleHits = 0;
             }
             game.activePowerUps[type] = null;
             updatePowerUpDisplay();
@@ -1562,9 +1696,16 @@
         function updateMultiplierDisplay() {
             const display = document.getElementById('multiplierDisplay');
             const multiplier = document.getElementById('multiplier');
-            if (pointMultiplier > 1) {
+            // Show multiplier if either score multiplier or combo multiplier is active
+            const combinedMultiplier = pointMultiplier * game.comboMultiplier;
+            if (combinedMultiplier > 1) {
                 display.style.display = 'block';
-                multiplier.textContent = pointMultiplier;
+                // Show combo indicator if active
+                if (game.comboMultiplier > 1) {
+                    multiplier.textContent = `${combinedMultiplier.toFixed(1)}x (${game.consecutivePipes} combo)`;
+                } else {
+                    multiplier.textContent = `${pointMultiplier}x`;
+                }
             } else {
                 display.style.display = 'none';
             }
@@ -1575,6 +1716,8 @@
                 case 'shield': return '🛡️';
                 case 'powbomb': return '💥';
                 case 'doublepoints': return '⭐';
+                case 'slowmo': return '⏱️';
+                case 'invincible': return '✨';
                 default: return '✨';
             }
         }
@@ -1684,6 +1827,10 @@
                     drawBombIcon(0, 0, size * 0.5);
                 } else if (pu.type === 'doublepoints') {
                     drawStarIcon(0, 0, size * 0.5);
+                } else if (pu.type === 'slowmo') {
+                    drawSlowmoIcon(0, 0, size * 0.5);
+                } else if (pu.type === 'invincible') {
+                    drawInvincibleIcon(0, 0, size * 0.5);
                 }
 
                 ctx.restore();
@@ -1768,6 +1915,59 @@
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawSlowmoIcon(x, y, size) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.fillStyle = '#00ccff';
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 2.5;
+
+            // Slow-motion hourglass/clock
+            // Top circle
+            ctx.beginPath();
+            ctx.arc(-size * 0.3, -size * 0.25, size * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Bottom circle
+            ctx.beginPath();
+            ctx.arc(size * 0.3, size * 0.25, size * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Connection line
+            ctx.beginPath();
+            ctx.moveTo(-size * 0.15, -size * 0.1);
+            ctx.lineTo(size * 0.15, size * 0.1);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawInvincibleIcon(x, y, size) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.fillStyle = 'rgba(255, 0, 255, 0.4)';
+            ctx.strokeStyle = '#ff00ff';
+            ctx.lineWidth = 3;
+
+            // Protective aura circles
+            ctx.beginPath();
+            ctx.arc(0, 0, size * 0.6, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(0, 0, size * 0.35, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Inner protection orb
+            ctx.fillStyle = '#ff00ff';
+            ctx.beginPath();
+            ctx.arc(0, 0, size * 0.15, 0, Math.PI * 2);
+            ctx.fill();
 
             ctx.restore();
         }
@@ -2127,7 +2327,17 @@
 
                 if (!pipe.scored && pipe.x + pipeWidth < bird.x) {
                     pipe.scored = true;
-                    game.score += pointMultiplier;
+                    // Increment consecutive pipes (combo system)
+                    game.consecutivePipes++;
+                    // Combo multiplier: 1x at start, up to 3x at 10+ consecutive pipes
+                    game.comboMultiplier = Math.min(3, 1 + (game.consecutivePipes / 10));
+
+                    // Level-based score bonus: +1 point per 2 levels (0.5% per level)
+                    const currentLevel = getEffectiveLevel();
+                    const levelBonus = Math.floor(currentLevel / 2);
+                    const baseScore = 1 + levelBonus;
+                    const comboScore = Math.floor(baseScore * pointMultiplier * game.comboMultiplier);
+                    game.score += comboScore;
                     addToStreak();
                     awardXP('pipe');
                     awardXP('streak5', game.streak);
@@ -2135,10 +2345,35 @@
                     scoreSound();
                     flashScore();
                     haptic(30); // subtle haptic on each point scored
+                    updateMultiplierDisplay(); // Update combo display
                     // Burst particles at the gap midpoint beside the bird
                     spawnPipeParticles(bird.x, pipe.top + pipeGap / 2);
 
+                    // Special hot streak effect when max combo reached (3x)
+                    if (game.comboMultiplier >= 3 && game.consecutivePipes % 5 === 0) {
+                        triggerShake(2, 10); // Small shake for combo milestones
+                        haptic([20, 10, 20]); // Pattern haptic for max combo
+                        // Spawn extra explosion particles
+                        for (let i = 0; i < 3; i++) {
+                            spawnExplosionParticles();
+                        }
+                    }
+
+                    // Show milestone popups at 5, 10, 15, 20+ pipes
+                    if ([5, 10, 15, 20, 25].includes(game.consecutivePipes)) {
+                        showComboPipesMilestone(game.consecutivePipes);
+                    }
+
                     if (game.score % 10 === 0) showMotivation();
+
+                    // Boss level progress tracking
+                    if (game.isBossLevel) {
+                        game.bossProgress++;
+                        // Check if boss is defeated (threshold reached)
+                        if (game.bossProgress >= game.bossThreshold) {
+                            defeatBoss();
+                        }
+                    }
                 }
 
                 if (pipe.x + pipeWidth < 0) pipes.splice(index, 1);
@@ -2173,6 +2408,19 @@
             if (bird.y + bird.radius > canvas.height || bird.y - bird.radius < 0) {
                 // Skip collision if invulnerable
                 if (game.invulnerable) return;
+
+                // Check if invincible power-up is active
+                if (game.activePowerUps.invincible && game.invincibleHits > 0) {
+                    game.invincibleHits--;
+                    triggerShake(5, 15);
+                    haptic(50);
+                    if (game.invincibleHits <= 0) {
+                        deactivatePowerUp('invincible');
+                    } else {
+                        spawnPowerUpParticles(bird.x, bird.y, 'invincible');
+                    }
+                    return;
+                }
 
                 // Check if shield is active
                 if (game.activePowerUps.shield) {
@@ -2212,6 +2460,19 @@
                     if (game.invulnerable) return;
 
                     triggerShake(9, 20);
+
+                    // Check if invincible power-up is active
+                    if (game.activePowerUps.invincible && game.invincibleHits > 0) {
+                        game.invincibleHits--;
+                        triggerShake(5, 15);
+                        haptic(50);
+                        if (game.invincibleHits <= 0) {
+                            deactivatePowerUp('invincible');
+                        } else {
+                            spawnPowerUpParticles(bird.x, bird.y, 'invincible');
+                        }
+                        return;
+                    }
 
                     // Check if shield is active
                     if (game.activePowerUps.shield) {
@@ -2268,7 +2529,61 @@
             ctx.font = '14px Arial';
             ctx.fillText('v' + version, 10, 25);
 
+            // Draw level difficulty indicator (speed multiplier + zone)
+            if (game.started && !game.gameOver) {
+                const currentLevel = getEffectiveLevel();
+                const speedMultiplier = (1 + (currentLevel - 1) * 0.015).toFixed(2);
+                const zone = getDifficultyZone(currentLevel);
+                ctx.fillStyle = 'rgba(255, 107, 0, 0.6)';
+                ctx.font = '12px Arial';
+
+                // Show boss status if boss level
+                if (game.isBossLevel) {
+                    const boss = game.bossType;
+                    ctx.fillStyle = boss.color;
+                    ctx.font = 'bold 14px Arial';
+                    ctx.fillText(`⚡ ${boss.name} ⚡`, 10, 40);
+                    ctx.fillStyle = boss.color;
+                    ctx.font = '13px Arial';
+                    ctx.fillText(`Pipes: ${Math.floor(game.bossProgress)}/${Math.floor(game.bossThreshold)}`, 10, 55);
+                } else {
+                    ctx.fillText(`${zone} | Lv${currentLevel} x${speedMultiplier}`, 10, 40);
+                }
+            }
+
             ctx.restore();
+
+            // Draw hot streak effect when combo is high
+            if (game.comboMultiplier > 2 && game.started && !game.gameOver) {
+                ctx.save();
+                // Hot orange/red edges for high combo
+                const comboIntensity = Math.min(0.3, (game.comboMultiplier - 2) * 0.15);
+                ctx.globalAlpha = comboIntensity;
+                // Edge border glow
+                ctx.fillStyle = '#ff4500';
+                const edgeWidth = 8;
+                ctx.fillRect(0, 0, canvas.width, edgeWidth); // top
+                ctx.fillRect(0, canvas.height - edgeWidth, canvas.width, edgeWidth); // bottom
+                ctx.restore();
+            }
+
+            // Draw slowmo screen effect (cyan tint + edge focus)
+            if (game.activePowerUps.slowmo) {
+                ctx.save();
+                // Cyan/blue tint for slowmo
+                ctx.globalAlpha = 0.08;
+                ctx.fillStyle = '#00ccff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Optional: subtle vignette effect
+                const vignette = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, canvas.height * 0.3, canvas.width / 2, canvas.height / 2, canvas.height * 0.9);
+                vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+                vignette.addColorStop(1, 'rgba(0, 0, 0, 0.1)');
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = vignette;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.restore();
+            }
 
             // Draw screen flash effect
             if (screenFlash.active) {
@@ -2431,6 +2746,103 @@
             }
         }
 
+        // ─── Boss Intro Screen ────────────────────────────────────────────────
+        function showBossIntro() {
+            const boss = game.bossType;
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.9);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                animation: fadeIn 0.5s ease-out;
+            `;
+
+            const intro = document.createElement('div');
+            intro.style.cssText = `
+                text-align: center;
+                color: ${boss.color};
+                font-family: Arial, sans-serif;
+            `;
+            intro.innerHTML = `
+                <div style="font-size: 72px; font-weight: bold; margin-bottom: 30px; text-shadow: 0 0 30px ${boss.color};">
+                    ⚡
+                </div>
+                <div style="font-size: 48px; font-weight: bold; margin-bottom: 20px; text-shadow: 0 0 20px ${boss.color};">
+                    ${boss.name}
+                </div>
+                <div style="font-size: 20px; margin-bottom: 40px; color: rgba(255, 255, 255, 0.8);">
+                    DEFEAT THIS BOSS TO PROGRESS
+                </div>
+                <div style="font-size: 16px; color: rgba(255, 255, 255, 0.6);">
+                    Survive and clear ${Math.floor(game.bossThreshold)} pipes
+                </div>
+            `;
+
+            overlay.appendChild(intro);
+            document.body.appendChild(overlay);
+
+            // Trigger screen shake
+            triggerShake(5, 20);
+            haptic([100, 50, 100]); // Dramatic haptic
+
+            // Remove intro after 2.5 seconds
+            setTimeout(() => {
+                overlay.remove();
+            }, 2500);
+        }
+
+        // ─── Defeat Boss ──────────────────────────────────────────────────────
+        function defeatBoss() {
+            const currentLevel = getEffectiveLevel();
+            const bossIdx = (currentLevel / 5) - 1;
+            game.bossDefeated[bossIdx] = true;
+            localStorage.setItem(`bossDefeated${currentLevel}`, 'true');
+
+            // Trigger epic victory sequence
+            triggerScreenFlash();
+            triggerExplosionShake();
+            haptic([50, 100, 50]); // Victory haptic pattern
+            playAudioBuffer('levelUp'); // Victory sound
+
+            // Show boss victory popup
+            const boss = game.bossType;
+            const popup = document.createElement('div');
+            popup.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(0, 0, 0, 0.95);
+                color: ${boss.color};
+                padding: 40px;
+                border-radius: 20px;
+                z-index: 10000;
+                text-align: center;
+                font-family: Arial, sans-serif;
+                border: 3px solid ${boss.color};
+                box-shadow: 0 0 50px ${boss.color};
+            `;
+            popup.innerHTML = `
+                <div style="font-size: 48px; font-weight: bold; margin-bottom: 20px;">⚡ BOSS DEFEATED! ⚡</div>
+                <div style="font-size: 32px; font-weight: bold; margin-bottom: 10px;">${boss.name}</div>
+                <div style="font-size: 24px; margin-bottom: 30px;">Level ${currentLevel} Complete!</div>
+            `;
+            document.body.appendChild(popup);
+
+            // Hide after 3 seconds and end game
+            setTimeout(() => {
+                popup.remove();
+                endGame();
+            }, 3000);
+        }
+
         // ─── End game ──────────────────────────────────────────────────────
         function endGame() {
             if (game.gameOver) return; // guard against double-trigger
@@ -2520,6 +2932,26 @@
             pipeGap = settings.pipeGap;
             pipeFrequency = settings.pipeFrequency;
 
+            // Apply level-based speed scaling (1.5% speed increase per level)
+            const currentLevel = getEffectiveLevel();
+            const levelSpeedBoost = 1 + (currentLevel - 1) * 0.015;
+            pipeSpeed *= levelSpeedBoost;
+            basePipeSpeed *= levelSpeedBoost;
+
+            // Check if this is a boss level and apply modifiers
+            game.isBossLevel = isBossLevel(currentLevel);
+            game.bossType = game.isBossLevel ? getBossInfo(currentLevel) : null;
+            if (game.isBossLevel) {
+                const boss = game.bossType;
+                // Apply boss-specific difficulty increases
+                pipeGap -= boss.gapReduction; // Reduce gap size
+                pipeSpeed *= (1 + boss.speedBoost); // Increase pipe speed
+                pipeFrequency = Math.max(50, pipeFrequency - 10); // Pipes come faster
+                // Set win condition based on level
+                game.bossThreshold = 8 + (currentLevel / 5) * 2; // 8, 10, 12, 15 pipes
+                game.bossProgress = 0;
+            }
+
             // Start new run tracking
             statsManager.startNewRun(difficulty);
 
@@ -2529,6 +2961,11 @@
             document.getElementById('soundToggle').classList.remove('visible');
             stopStartMusic();
             game.started = true;
+
+            // Show boss intro if boss level
+            if (game.isBossLevel) {
+                showBossIntro();
+            }
 
             // Highlight selected difficulty
             document.querySelectorAll('.difficulty-btn').forEach(btn => {
@@ -2624,10 +3061,15 @@
             }
 
             if (game.started) {
-                bird.velocity = bird.lift;
+                // Apply accelerator boost for multi-tap
+                const boostMultiplier = calculateAcceleratorBoost();
+                bird.velocity = bird.lift * boostMultiplier;
                 jumpSound();
                 spawnJumpRing();
-                haptic(18); // light haptic pulse on each flap
+
+                // Enhanced haptic feedback: more intense with more taps
+                const hapticStrength = 18 + (bird.tapCount - 1) * 8; // 18, 26, 34, 42ms
+                haptic(hapticStrength);
 
                 // Visual tap feedback on mobile
                 if (e.touches) {
@@ -2731,9 +3173,12 @@
                 }
 
                 if (game.started) {
-                    bird.velocity = bird.lift;
+                    // Apply accelerator boost for multi-tap (keyboard too)
+                    const boostMultiplier = calculateAcceleratorBoost();
+                    bird.velocity = bird.lift * boostMultiplier;
                     jumpSound();
                     spawnJumpRing();
+                    haptic(18); // light haptic
                 }
             }
             // ESC to close customize overlay first, then stats overlay
